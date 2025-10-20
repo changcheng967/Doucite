@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "Doucite",
-  "version": "3.3.0",
-  "description": "Doucite — editable, overrideable citations (APA/MLA/Chicago/IEEE/Harvard/Vancouver), date selection (published or modified), exports, batch, i18n.",
+  "version": "3.4.0",
+  "description": "Doucite — robust, editable citation generator with date choice (published/modified/n.d.), page/site overrides, APA/MLA/Chicago/IEEE/Harvard/Vancouver, exports, batch mode, i18n.",
   "permissions": ["activeTab", "scripting", "clipboardWrite", "storage", "tabs"],
   "host_permissions": ["<all_urls>"],
   "action": {
