@@ -1,0 +1,67 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Doucite</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="wrap">
+    <div class="toolbar">
+      <div class="brand">Doucite</div>
+      <div class="controls">
+        <select id="style">
+          <option value="apa">APA 7</option>
+          <option value="mla">MLA 9</option>
+          <option value="chicago">Chicago</option>
+        </select>
+        <button id="rescan" title="Rescan page">↻</button>
+        <button id="darkmode" title="Toggle dark mode">☾</button>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-header">Metadata</div>
+      <div class="grid">
+        <label>Title<input id="title" type="text"></label>
+        <label>Author(s)<input id="authors" type="text" placeholder="Comma separated"></label>
+        <label>Date<input id="date" type="text" placeholder="YYYY-MM-DD or 3 December 2020"></label>
+        <label>Publisher<input id="publisher" type="text"></label>
+        <label>URL<input id="url" type="text"></label>
+        <label>DOI<input id="doi" type="text" placeholder="10.xxxx/...."></label>
+      </div>
+      <div class="panel-actions">
+        <button id="apply">Apply changes</button>
+        <button id="saveOverride">Save site override</button>
+        <span id="status" class="status"></span>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-header">Options</div>
+      <div class="options">
+        <label><input type="checkbox" id="includeAccessed" checked> Include “Retrieved” date</label>
+        <label><input type="checkbox" id="sentenceCase" checked> Sentence case title (APA)</label>
+        <label><input type="checkbox" id="useCorporateAuthor" checked> Use publisher/site when author missing</label>
+        <label><input type="checkbox" id="pdfSuffix" checked> Append “[PDF]” when detected</label>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-header">Preview</div>
+      <textarea id="output" rows="6" readonly></textarea>
+      <div class="panel-actions">
+        <button id="copy">Copy citation</button>
+        <button id="copyBib">Copy BibTeX</button>
+      </div>
+    </div>
+
+    <div class="credits">
+      By <strong>changcheng967</strong> • With help from <strong>Doulet Media</strong>
+    </div>
+  </div>
+
+  <script src="utils.js"></script>
+  <script src="popup.js"></script>
+</body>
+</html>

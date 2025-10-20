@@ -1,0 +1,25 @@
+{
+  "manifest_version": 3,
+  "name": "Doucite",
+  "version": "2.0.0",
+  "description": "Doucite — advanced one-click citations with robust extraction for messy pages, PDFs, canonical URLs, JSON-LD, and gov/academic sites. By changcheng967 with help from Doulet Media.",
+  "permissions": ["activeTab", "scripting", "clipboardWrite", "storage"],
+  "host_permissions": ["<all_urls>"],
+  "action": {
+    "default_title": "Doucite",
+    "default_popup": "popup.html"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": ["popup.css"],
+      "matches": ["<all_urls>"]
+    }
+  ]
+}

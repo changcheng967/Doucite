@@ -1,0 +1,46 @@
+:root {
+  --bg: #ffffff;
+  --fg: #0f172a;
+  --muted: #64748b;
+  --panel: #f8fafc;
+  --border: #e2e8f0;
+  --accent: #2563eb;
+  --accent-fg: #ffffff;
+}
+
+body.dark {
+  --bg: #0b1220;
+  --fg: #e5e7eb;
+  --muted: #9ca3af;
+  --panel: #111827;
+  --border: #1f2937;
+  --accent: #60a5fa;
+  --accent-fg: #0b1220;
+}
+
+* { box-sizing: border-box; }
+body { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial; margin: 0; background: var(--bg); color: var(--fg); }
+.wrap { width: 460px; padding: 12px; }
+
+.toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+.brand { font-weight: 700; letter-spacing: 0.2px; }
+.controls { display: flex; gap: 8px; align-items: center; }
+#style { padding: 6px 8px; border: 1px solid var(--border); background: var(--panel); color: var(--fg); border-radius: 6px; }
+#rescan, #darkmode { padding: 6px 10px; border: 1px solid var(--border); background: var(--panel); color: var(--fg); border-radius: 6px; cursor: pointer; }
+
+.panel { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 10px; margin-bottom: 10px; }
+.panel-header { font-weight: 600; margin-bottom: 8px; }
+.grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.grid label { display: flex; flex-direction: column; font-size: 12px; color: var(--muted); }
+.grid input { margin-top: 4px; padding: 8px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); color: var(--fg); }
+
+.options { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; font-size: 13px; }
+.panel-actions { display: flex; gap: 8px; align-items: center; margin-top: 10px; }
+.panel-actions button { padding: 8px 10px; border: 1px solid var(--border); background: var(--bg); color: var(--fg); border-radius: 8px; cursor: pointer; }
+.panel-actions button.primary { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); }
+.status { font-size: 12px; color: var(--muted); }
+
+textarea#output { width: 100%; padding: 8px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); color: var(--fg); font-size: 13px; }
+
+.credits { text-align: center; font-size: 11px; color: var(--muted); margin-top: 8px; }
+.credits strong { font-weight: 600; }
