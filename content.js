@@ -1,5 +1,5 @@
-// content.js — Doucite v3.6.0
-// Visible-first extraction, improved author parsing, corporate-author normalization (EPA -> U.S. Environmental Protection Agency)
+// content.js — Doucite v3.7.0
+// Visible-first extraction, robust author normalization, corporate mapping, exposes window.__DOUCITE__
 
 (function () {
   const text = (el) => (el && el.textContent ? el.textContent.trim() : "");
@@ -20,7 +20,7 @@
       const href = c ? attr(c, "href") : location.href;
       const u = new URL(href, location.href);
       u.hash = "";
-      ["utm_source","utm_medium","utm_campaign","utm_term","utm_content"].forEach((p) => u.searchParams.delete(p));
+      ["utm_source","utm_medium","utm_campaign","utm_term","utm_content"].forEach(p => u.searchParams.delete(p));
       return u.href;
     } catch { return location.href; }
   }
@@ -38,21 +38,21 @@
     return String(s).split(/\s*\|\s*|\s+—\s+|\s+-\s+|\s+·\s+/)[0].trim().replace(/\s+/g, " ");
   }
 
-  // Corporate normalization map (add entries here as needed)
+  // corporate map
   const CORPORATE_MAP = [
-    { rx: /\b(us\s*epa|u\.s\.?\s*epa|epa)\b/i, name: "U.S. Environmental Protection Agency" }
+    { rx: /\b(us\s*epa|u\.s\.?\s*epa|epa)\b/i, name: "U.S. Environmental Protection Agency" },
+    { rx: /\b(ns?idc|national snow and ice data center)\b/i, name: "National Snow and Ice Data Center" }
   ];
 
   function normalizeCorporateName(s) {
     if (!s) return "";
-    for (const m of CORPORATE_MAP) {
-      if (m.rx.test(s)) return m.name;
-    }
+    for (const m of CORPORATE_MAP) if (m.rx.test(s)) return m.name;
     return s;
   }
 
-  // Heuristics for provenance tokens and splitting bylines
-  const PROVENANCE = ["npr","wbur","nsidc","national snow and ice data center","all things considered","heard on","from","ap","reuters","pbs"];
+  // provenance tokens indicative of sources not names
+  const PROVENANCE = ["npr","wbur","nsidc","national snow and ice data center","all things considered","heard on","from","ap","reuters","pbs","noaa"];
+
   function looksLikeProvenance(s) {
     if (!s) return false;
     const lower = s.toLowerCase().replace(/[^a-z0-9\s]/g," ").trim();
@@ -62,38 +62,41 @@
     return false;
   }
 
+  // Split raw byline into plausible fragments
   function splitBylineRaw(raw) {
     if (!raw) return [];
     const r = raw.replace(/\s*[\u2014\u2013–—]\s*/g, " - ").trim();
-    const parts = r.split(/\s*\/\s*|\s*\|\s*|\s*;\s*|\s+\&\s+|\s+ and \s+/i).map(p => p.trim()).filter(Boolean);
+    // separators: slash, pipe, semicolon, " and ", "&", newline
+    const parts = r.split(/\s*\/\s*|\s*\|\s*|\s*;\s*|\r?\n|\s+\&\s+|\s+ and \s+/i).map(p => p.trim()).filter(Boolean);
     return parts.flatMap(p => {
       const cleaned = p.replace(/^(By|BY|by)\s+/i, "").trim();
-      if (/\bfrom\b/i.test(cleaned)) return cleaned.split(/\bfrom\b/i).map(x=>x.trim()).filter(Boolean);
-      if (cleaned.includes("-")) return cleaned.split(/-\s*/).map(x=>x.trim()).filter(Boolean);
+      if (/\bfrom\b/i.test(cleaned)) return cleaned.split(/\bfrom\b/i).map(x => x.trim()).filter(Boolean);
+      if (cleaned.includes(" - ")) return cleaned.split(/\s*-\s*/).map(x => x.trim()).filter(Boolean);
       return cleaned;
     });
   }
 
+  // clean fragment to name or corporate body
   function normalizeAuthorFragment(frag) {
     if (!frag) return "";
     let s = String(frag).trim();
     s = s.replace(/\u200B/g,"");
-    s = s.replace(/^(By|BY|by)\s+/i, "");
-    s = s.replace(/^(Heard on|Heard in|From)\b.*$/i, "").trim();
-    s = s.replace(/\(\s*(WBUR|NPR|NSIDC|National Snow and Ice Data Center|WBUR News|WBUR\/|All Things Considered)\s*\)\s*$/i, "").trim();
-    s = s.replace(/,\s*(WBUR|NPR|NSIDC|National Snow and Ice Data Center|WBUR News|All Things Considered)$/i, "").trim();
-    s = s.replace(/^[\-:;,\s]+|[\-:;,\s]+$/g, "").trim();
+    s = s.replace(/^By\s+/i,"").trim();
+    s = s.replace(/^(Heard on|Heard in|From)\b.*$/i,"").trim();
+    s = s.replace(/\(\s*(WBUR|NPR|NSIDC|National Snow and Ice Data Center|WBUR News|All Things Considered|NOAA)\s*\)\s*$/i,"").trim();
+    s = s.replace(/,\s*(WBUR|NPR|NSIDC|National Snow and Ice Data Center|WBUR News|All Things Considered|NOAA)$/i,"").trim();
+    s = s.replace(/^[\-:;,\s]+|[\-:;,\s]+$/g,"").trim();
     s = s.replace(/\s{2,}/g," ").trim();
     if (!s) return "";
     if (looksLikeProvenance(s)) return "";
     // corporate normalization
     const corp = normalizeCorporateName(s);
     if (corp && corp !== s) return corp;
-    // if s contains a slash or pipe, prefer leftmost non-provenance
+    // if contains slash or pipe, choose non-provenance part
     if (s.includes("/") || s.includes("|")) {
       const parts = s.split(/\/|\|/).map(p=>p.trim()).filter(Boolean);
       for (const p of parts) if (!looksLikeProvenance(p)) return p;
-      return parts[0] || "";
+      return parts[0]||"";
     }
     return s;
   }
@@ -102,7 +105,7 @@
     const seen = new Set();
     const out = [];
     for (const a of arr) {
-      const k = String(a).toLowerCase().replace(/\s+/g," ").trim();
+      const k = String(a).toLowerCase().replace(/[^\w]+/g," ").trim();
       if (!k) continue;
       if (!seen.has(k)) { seen.add(k); out.push(a.trim()); }
     }
@@ -117,8 +120,8 @@
       if (el && text(el)) found.push(text(el).trim());
     }
     try {
-      const top = (document.body && document.body.innerText) ? document.body.innerText.slice(0, 1000) : "";
-      const m = top.match(/\bBy\s+([A-Z][a-zA-Z\-\.'\s]{1,80})/);
+      const top = (document.body && document.body.innerText) ? document.body.innerText.slice(0, 1200) : "";
+      const m = top.match(/\bBy\s+([A-Z][a-zA-Z\-\.'\s]{1,120})/);
       if (m && m[1]) found.push(m[1].trim());
     } catch {}
     return Array.from(new Set(found));
@@ -126,7 +129,7 @@
 
   function visibleDateCandidates() {
     const found = [];
-    document.querySelectorAll("time[datetime], time").forEach((t) => {
+    document.querySelectorAll("time[datetime], time").forEach(t => {
       const v = (t.getAttribute && (t.getAttribute("datetime") || t.textContent)) || t.textContent;
       if (v && String(v).trim()) found.push(String(v).trim());
     });
@@ -157,8 +160,9 @@
         if (n) candidates.push(n);
       }
     }
+    // fallback: meta authors
     if (!candidates.length) {
-      document.querySelectorAll('meta[name="citation_author"], meta[name="author"], meta[property="DC.creator"]').forEach((m) => {
+      document.querySelectorAll('meta[name="citation_author"], meta[name="author"], meta[property="DC.creator"]').forEach(m => {
         if (m.content) {
           const parts = splitBylineRaw(m.content);
           parts.forEach(p => {
@@ -168,6 +172,7 @@
         }
       });
     }
+    // JSON-LD fallback
     if (!candidates.length) {
       const ld = safeJSONLD();
       for (const n of ld) {
@@ -182,19 +187,19 @@
         else if (a && a.name) { const r = normalizeAuthorFragment(a.name); if (r) candidates.push(r); }
       }
     }
-    const deduped = dedupe(candidates);
-    // If the single deduped entry is a known corporate name mapping like "U.S. Environmental Protection Agency", use it as sole author (corporate author)
-    if (deduped.length === 1) {
-      const corp = normalizeCorporateName(deduped[0]);
-      if (corp) return [corp];
+    const list = dedupe(candidates).map(a => normalizeCorporateName(a));
+    // If single item and maps to corporate canonical, return canonical corporate name
+    if (list.length === 1) {
+      const canon = normalizeCorporateName(list[0]);
+      if (canon) return [canon];
     }
-    // Also normalize corporate tokens inside list (e.g., "US EPA" -> full name)
-    return deduped.map(a => normalizeCorporateName(a));
+    return list;
   }
 
   function extractOnce() {
     const ld = safeJSONLD();
 
+    // Title
     let title = "";
     const h1 = document.querySelector("h1");
     if (h1 && text(h1)) title = cleanTitle(text(h1));
@@ -211,8 +216,10 @@
     }
     if (!title && document.title) title = cleanTitle(document.title);
 
+    // Authors
     const authors = parseAuthors();
 
+    // Dates
     const visibleDates = visibleDateCandidates();
     let published = visibleDates[0] || "";
     let modified = visibleDates[1] || "";
@@ -239,6 +246,7 @@
       }
     }
 
+    // Publisher/site name
     let publisher = "";
     const metaPubName = document.querySelector('meta[name="publisher"], meta[property="og:site_name"]');
     if (metaPubName && metaPubName.content) publisher = metaPubName.content.trim();
@@ -251,6 +259,7 @@
     }
     if (!publisher) publisher = document.location.hostname.replace(/^www\./, "");
 
+    // DOI
     let doi = "";
     const doiMeta = document.querySelector('meta[name="citation_doi"], meta[property="DC.identifier"]');
     if (doiMeta && doiMeta.content) {

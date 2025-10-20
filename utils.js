@@ -1,4 +1,4 @@
-// utils.js — unchanged helpers (name parsing, date normalization, sentence case, joins, slug)
+// utils.js — name parsing, date normalization, sentence case, slug, joins
 
 window.CiteUtils = (function () {
   function splitName(full) {
@@ -37,7 +37,7 @@ window.CiteUtils = (function () {
     return { year: "", month: "", day: "" };
   }
 
-  const PRESERVE = new Set(["Arctic","Alaska","EPA","U.S.","US","United","States","Environmental","Protection","Agency"]);
+  const PRESERVE = new Set(["Arctic","Alaska","EPA","U.S.","US","United","States","Environmental","Protection","Agency","NSIDC","NOAA"]);
   function sentenceCaseSmart(str) {
     if (!str) return "";
     const s = str.trim();
@@ -54,14 +54,10 @@ window.CiteUtils = (function () {
   }
 
   function today() { const d = new Date(); const m = monthNames()[d.getMonth()]; return `${m} ${d.getDate()}, ${d.getFullYear()}`; }
-  function todayMLA() { const d = new Date(); const m = monthNames()[d.getMonth()]; return `${d.getDate()} ${m} ${d.getFullYear()}`; }
-  function todayChicago() { return today(); }
-  function formatDateMLA(date) { if (date.year && date.month && date.day) return `${date.day} ${date.month} ${date.year}`; if (date.year && date.month) return `${date.month} ${date.year}`; return date.year || "n.d."; }
-  function formatDateChicago(date) { if (date.year && date.month && date.day) return `${date.month} ${date.day}, ${date.year}`; if (date.year && date.month) return `${date.month} ${date.year}`; return date.year || "n.d."; }
 
   function slug(s) { return (s || "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, ""); }
   function joinAPA(names) { if (!names || !names.length) return ""; if (names.length === 1) return names[0]; const last = names.pop(); return `${names.join(", ")}, & ${last}`; }
   function joinChicago(names) { if (!names || !names.length) return ""; if (names.length === 1) return names[0]; const last = names.pop(); return `${names.join(", ")}, and ${last}`; }
 
-  return { splitName, normalizeDate, sentenceCaseSmart, today, todayMLA, todayChicago, formatDateMLA, formatDateChicago, slug, joinAPA, joinChicago, monthIndex };
+  return { splitName, normalizeDate, sentenceCaseSmart, today, slug, joinAPA, joinChicago, monthIndex };
 })();

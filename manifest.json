@@ -1,25 +1,13 @@
 {
   "manifest_version": 3,
   "name": "Doucite",
-  "version": "3.6.0",
-  "description": "Doucite — robust citation generator with corporate-author normalization, visible-first extraction, and reliable overrides.",
+  "version": "v3.7.0",
+  "description": "Doucite — accurate, visible-first citation extraction, clean author parsing, reliable overrides, APA 7, exports.",
   "permissions": ["activeTab", "scripting", "clipboardWrite", "storage", "tabs"],
   "host_permissions": ["<all_urls>"],
-  "action": {
-    "default_title": "Doucite",
-    "default_popup": "popup.html"
-  },
+  "action": { "default_title": "Doucite", "default_popup": "popup.html" },
   "content_scripts": [
-    {
-      "matches": ["<all_urls>"],
-      "js": ["content.js"],
-      "run_at": "document_idle"
-    }
+    { "matches": ["<all_urls>"], "js": ["content.js"], "run_at": "document_idle" }
   ],
-  "web_accessible_resources": [
-    {
-      "resources": ["popup.css"],
-      "matches": ["<all_urls>"]
-    }
-  ]
+  "web_accessible_resources": [{ "resources": ["popup.css"], "matches": ["<all_urls>"] }]
 }
