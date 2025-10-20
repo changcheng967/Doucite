@@ -1,5 +1,7 @@
-// popup.js — Doucite v3.0.1: styles, exports (BibTeX/RIS/CSL), batch mode, i18n,
-// modern UI, conservative DOI, APA punctuation fix, robust error handling.
+// popup.js — Doucite v3.1.0
+// Editable metadata with overrides (auto/page/site), lock/unlock citation,
+// styles (APA/MLA/Chicago/IEEE/Harvard/Vancouver), exports (BibTeX/RIS/CSL), batch mode, i18n,
+// conservative DOI for gov domains, APA punctuation fix, robust error handling.
 
 (async function () {
   async function getTab() {
@@ -12,7 +14,6 @@
       const res = await chrome.tabs.sendMessage(tabId, { type: "GET_CITATION_DATA" });
       if (res && !res.error) return res;
     } catch {}
-    // Try injecting content script if not present yet
     try {
       await chrome.scripting.executeScript({ target: { tabId }, files: ["content.js"] });
       const res2 = await chrome.tabs.sendMessage(tabId, { type: "GET_CITATION_DATA" });
@@ -44,8 +45,16 @@
   const urlEl = document.getElementById("url");
   const doiEl = document.getElementById("doi");
   const applyBtn = document.getElementById("apply");
-  const saveOverrideBtn = document.getElementById("saveOverride");
+  const lockCitation = document.getElementById("lockCitation");
   const statusEl = document.getElementById("status");
+
+  const loadAutoBtn = document.getElementById("loadAuto");
+  const loadPageOverrideBtn = document.getElementById("loadPageOverride");
+  const savePageOverrideBtn = document.getElementById("savePageOverride");
+  const clearPageOverrideBtn = document.getElementById("clearPageOverride");
+  const loadSiteOverrideBtn = document.getElementById("loadSiteOverride");
+  const saveSiteOverrideBtn = document.getElementById("saveSiteOverride");
+  const clearSiteOverrideBtn = document.getElementById("clearSiteOverride");
 
   const collectCurrentBtn = document.getElementById("collectCurrent");
   const collectAllTabsBtn = document.getElementById("collectAllTabs");
@@ -55,15 +64,22 @@
   const batchListEl = document.getElementById("batchList");
 
   const tab = await getTab();
-  let data = await fetchData(tab.id);
+  let autoData = await fetchData(tab.id); // auto extraction snapshot
+  let data = { ...autoData }; // working data in UI
 
   // Storage
-  const siteKey = (new URL(data.url || "https://example.com")).hostname;
-  const stored = await chrome.storage.local.get(["overrides", "batch", "ui"]);
-  const overrides = stored.overrides || {};
+  const pageKey = data.url || "https://example.com";
+  const siteKey = (new URL(pageKey)).hostname;
+  const stored = await chrome.storage.local.get(["overrides", "pageOverrides", "batch", "ui"]);
+  const overrides = stored.overrides || {};       // site-level
+  const pageOverrides = stored.pageOverrides || {}; // page-level
   let batch = stored.batch || [];
   let uiPrefs = stored.ui || { lang: "en", dark: false };
+
+  // Apply site override on load if present
   if (overrides[siteKey]) data = { ...data, ...overrides[siteKey] };
+  // Apply page override if present (takes precedence)
+  if (pageOverrides[pageKey]) data = { ...data, ...pageOverrides[pageKey] };
 
   // i18n
   const I18N = {
@@ -104,7 +120,6 @@
       copy_bib: "复制 BibTeX"
     }
   };
-
   function applyI18N(lang) {
     const dict = I18N[lang] || I18N.en;
     document.querySelectorAll("[data-i18n]").forEach((el) => {
@@ -128,18 +143,17 @@
 
   function corporateAuthor(d) { return d.publisher || d.siteName || ""; }
 
-  // Conservative DOI usage
+  // Conservative DOI
+  function isGovDomain(url) {
+    try {
+      const h = new URL(url).hostname.toLowerCase();
+      return /\.(gov|gc\.ca|gov\.uk)$/.test(h) || /epa\.gov$/.test(h);
+    } catch { return false; }
+  }
   function shouldUseDOI(d) {
     const doi = d.doi || "";
     if (!doi) return false;
-
-    // If meta or JSON-LD references DOI, trust it
-    // content.js already read meta/ld; here we conservatively avoid gov domains unless explicit
-    const govDomain =
-      /\.(gov|gc\.ca|gov\.uk)$/i.test((new URL(d.url || "https://example.com")).hostname) ||
-      /epa\.gov$/i.test((new URL(d.url || "https://example.com")).hostname);
-    if (govDomain) return false;
-
+    if (isGovDomain(d.url)) return false; // omit mismatched DOI on gov pages
     return true;
   }
 
@@ -150,11 +164,10 @@
       const { last, initials } = window.CiteUtils.splitName(a);
       const cleanInitials = initials.replace(/\s+/g, " ").trim().replace(/\.\.+/g, ".");
       const base = last ? `${last}, ${cleanInitials}` : a;
-      return base.replace(/\.\s*$/, "") + "."; // single terminal period
+      return base.replace(/\.\s*$/, "") + "."; // ensure single terminal period
     });
     return window.CiteUtils.joinAPA(formatted);
   }
-
   function mlaAuthors(authors) {
     if (!authors.length) return "";
     if (authors.length === 1) {
@@ -164,7 +177,6 @@
     const first = window.CiteUtils.splitName(authors[0]);
     return `${first.last}, ${first.firstMiddle}, et al.`;
   }
-
   function chicagoAuthors(authors, d, useCorp) {
     if (!authors.length) return useCorp ? corporateAuthor(d) : "";
     if (authors.length === 1) {
@@ -177,7 +189,6 @@
     });
     return window.CiteUtils.joinChicago(names);
   }
-
   function ieeeAuthors(authors) {
     if (!authors.length) return "";
     return authors.map((a) => {
@@ -186,7 +197,6 @@
       return `${initials} ${s.last}`.trim();
     }).join(", ");
   }
-
   function harvardAuthors(authors) {
     if (!authors.length) return "";
     return authors.map((a) => {
@@ -195,7 +205,6 @@
       return `${s.last}, ${initials}`.trim().replace(/\s+$/, "");
     }).join(", ");
   }
-
   function vancouverAuthors(authors) {
     if (!authors.length) return "";
     return authors.map((a) => {
@@ -223,7 +232,6 @@
     if (!authorStr) return `${title}. ${dateStr} ${site}.${doiPart}${retrieved}`;
     return `${authorStr} ${dateStr} ${title}. ${site}.${doiPart}${retrieved}`;
   }
-
   function mla(d) {
     const authorStr = mlaAuthors(d.authors || []);
     const site = d.publisher || d.siteName;
@@ -235,7 +243,6 @@
     if (!authorStr) return `${titleQuoted} ${site}, ${dateStr}, ${d.url}.${doiPart}${accessed}`;
     return `${authorStr}. ${titleQuoted} ${site}, ${dateStr}, ${d.url}.${doiPart}${accessed}`;
   }
-
   function chicago(d) {
     const authorStr = chicagoAuthors(d.authors || [], d, useCorporateAuthor.checked);
     const site = d.publisher || d.siteName;
@@ -247,7 +254,6 @@
     if (!authorStr) return `${titleQuoted} ${site}, ${dateStr}. ${d.url}.${doiPart}${accessed}`;
     return `${authorStr}. ${titleQuoted} ${site}, ${dateStr}. ${d.url}.${doiPart}${accessed}`;
   }
-
   function ieee(d) {
     const idx = 1;
     const authorStr = ieeeAuthors(d.authors || []);
@@ -256,7 +262,6 @@
     const site = d.publisher || d.siteName;
     return `[${idx}] ${authorStr ? authorStr + ", " : ""}"${title}", ${site}, ${year}. Available: ${d.url}`;
   }
-
   function harvard(d) {
     const authorStr = harvardAuthors(d.authors || []);
     const date = window.CiteUtils.normalizeDate(d.date);
@@ -266,7 +271,6 @@
     const accessed = includeAccessed.checked ? ` (Accessed ${window.CiteUtils.todayMLA()}).` : ".";
     return `${authorStr ? authorStr + " " : ""}(${year}) ${title}. ${site}. Available at: ${d.url}${accessed}`;
   }
-
   function vancouver(d) {
     const authorStr = vancouverAuthors(d.authors || []);
     const year = window.CiteUtils.normalizeDate(d.date).year || "n.d.";
@@ -303,10 +307,103 @@
     data.publisher = publisherEl.value.trim();
     data.url = urlEl.value.trim();
     data.doi = doiEl.value.trim();
-    refreshCitation();
+    if (!lockCitation.checked) refreshCitation();
     statusEl.textContent = "Applied.";
     setTimeout(() => (statusEl.textContent = ""), 1200);
   }
+
+  // Overrides: Auto / Page / Site
+  function hydrateAndRefresh() { hydrateFields(data); if (!lockCitation.checked) refreshCitation(); }
+
+  loadAutoBtn.addEventListener("click", () => {
+    data = { ...autoData };
+    hydrateAndRefresh();
+    statusEl.textContent = "Loaded auto extraction.";
+    setTimeout(() => (statusEl.textContent = ""), 1200);
+  });
+
+  loadPageOverrideBtn.addEventListener("click", async () => {
+    const stored = await chrome.storage.local.get(["pageOverrides"]);
+    const pOv = stored.pageOverrides || {};
+    if (pOv[pageKey]) {
+      data = { ...autoData, ...pOv[pageKey] };
+      hydrateAndRefresh();
+      statusEl.textContent = "Loaded page override.";
+    } else {
+      statusEl.textContent = "No page override found.";
+    }
+    setTimeout(() => (statusEl.textContent = ""), 1500);
+  });
+
+  savePageOverrideBtn.addEventListener("click", async () => {
+    const stored = await chrome.storage.local.get(["pageOverrides"]);
+    const pOv = stored.pageOverrides || {};
+    pOv[pageKey] = {
+      title: data.title, authors: data.authors, date: data.date,
+      publisher: data.publisher, url: data.url, doi: data.doi
+    };
+    await chrome.storage.local.set({ pageOverrides: pOv });
+    statusEl.textContent = "Page override saved.";
+    setTimeout(() => (statusEl.textContent = ""), 1200);
+  });
+
+  clearPageOverrideBtn.addEventListener("click", async () => {
+    const stored = await chrome.storage.local.get(["pageOverrides"]);
+    const pOv = stored.pageOverrides || {};
+    delete pOv[pageKey];
+    await chrome.storage.local.set({ pageOverrides: pOv });
+    statusEl.textContent = "Page override cleared.";
+    setTimeout(() => (statusEl.textContent = ""), 1200);
+  });
+
+  loadSiteOverrideBtn.addEventListener("click", async () => {
+    const stored = await chrome.storage.local.get(["overrides"]);
+    const ov = stored.overrides || {};
+    if (ov[siteKey]) {
+      data = { ...autoData, ...ov[siteKey] };
+      hydrateAndRefresh();
+      statusEl.textContent = "Loaded site override.";
+    } else {
+      statusEl.textContent = "No site override found.";
+    }
+    setTimeout(() => (statusEl.textContent = ""), 1500);
+  });
+
+  saveSiteOverrideBtn.addEventListener("click", async () => {
+    const stored = await chrome.storage.local.get(["overrides"]);
+    const ov = stored.overrides || {};
+    ov[siteKey] = {
+      title: data.title, authors: data.authors, date: data.date,
+      publisher: data.publisher, doi: data.doi
+    };
+    await chrome.storage.local.set({ overrides: ov });
+    statusEl.textContent = "Site override saved.";
+    setTimeout(() => (statusEl.textContent = ""), 1200);
+  });
+
+  clearSiteOverrideBtn.addEventListener("click", async () => {
+    const stored = await chrome.storage.local.get(["overrides"]);
+    const ov = stored.overrides || {};
+    delete ov[siteKey];
+    await chrome.storage.local.set({ overrides: ov });
+    statusEl.textContent = "Site override cleared.";
+    setTimeout(() => (statusEl.textContent = ""), 1200);
+  });
+
+  // Rescan
+  rescanBtn.addEventListener("click", async () => {
+    try {
+      const t = await getTab();
+      autoData = await fetchData(t.id);
+      data = { ...autoData }; // reset working data to auto
+      hydrateAndRefresh();
+      statusEl.textContent = "Rescanned.";
+      setTimeout(() => (statusEl.textContent = ""), 1200);
+    } catch {
+      statusEl.textContent = "Error: Rescan failed.";
+      setTimeout(() => (statusEl.textContent = ""), 1500);
+    }
+  });
 
   // Exports
   function bibtex(d) {
@@ -326,7 +423,6 @@
     bib += "}";
     return bib;
   }
-
   function ris(d) {
     const date = window.CiteUtils.normalizeDate(d.date);
     const year = date.year || "";
@@ -344,7 +440,6 @@
     ].filter(Boolean);
     return lines.join("\n");
   }
-
   function csl(d) {
     const date = window.CiteUtils.normalizeDate(d.date);
     const obj = {
@@ -422,45 +517,12 @@
   });
 
   // Events
-  styleSel.addEventListener("change", refreshCitation);
-  includeAccessed.addEventListener("change", refreshCitation);
-  sentenceCaseOpt.addEventListener("change", refreshCitation);
-  useCorporateAuthor.addEventListener("change", refreshCitation);
-  pdfSuffix.addEventListener("change", refreshCitation);
+  styleSel.addEventListener("change", () => { if (!lockCitation.checked) refreshCitation(); });
+  includeAccessed.addEventListener("change", () => { if (!lockCitation.checked) refreshCitation(); });
+  sentenceCaseOpt.addEventListener("change", () => { if (!lockCitation.checked) refreshCitation(); });
+  useCorporateAuthor.addEventListener("change", () => { if (!lockCitation.checked) refreshCitation(); });
+  pdfSuffix.addEventListener("change", () => { if (!lockCitation.checked) refreshCitation(); });
   applyBtn.addEventListener("click", applyEdits);
-
-  saveOverrideBtn.addEventListener("click", async () => {
-    try {
-      const key = (new URL(data.url || "https://example.com")).hostname;
-      const saved = await chrome.storage.local.get(["overrides"]);
-      const overrides = saved.overrides || {};
-      overrides[key] = { title: data.title, authors: data.authors, date: data.date, publisher: data.publisher, doi: data.doi };
-      await chrome.storage.local.set({ overrides });
-      statusEl.textContent = "Override saved.";
-      setTimeout(() => (statusEl.textContent = ""), 1200);
-    } catch {
-      statusEl.textContent = "Error: Failed to save override.";
-      setTimeout(() => (statusEl.textContent = ""), 1500);
-    }
-  });
-
-  rescanBtn.addEventListener("click", async () => {
-    try {
-      const t = await getTab();
-      data = await fetchData(t.id);
-      const key = (new URL(data.url || "https://example.com")).hostname;
-      const saved = await chrome.storage.local.get(["overrides"]);
-      const overrides = saved.overrides || {};
-      if (overrides[key]) data = { ...data, ...overrides[key] };
-      hydrateFields(data);
-      refreshCitation();
-      statusEl.textContent = "Rescanned.";
-      setTimeout(() => (statusEl.textContent = ""), 1200);
-    } catch {
-      statusEl.textContent = "Error: Rescan failed.";
-      setTimeout(() => (statusEl.textContent = ""), 1500);
-    }
-  });
 
   copyBtn.addEventListener("click", async () => {
     try {
@@ -472,7 +534,6 @@
       setTimeout(() => (copyBtn.textContent = "Copy citation"), 1200);
     }
   });
-
   copyBibBtn.addEventListener("click", async () => {
     try {
       const bib = bibtex(data);
@@ -484,7 +545,6 @@
       setTimeout(() => (copyBibBtn.textContent = "Copy BibTeX"), 1200);
     }
   });
-
   copyRISBtn.addEventListener("click", async () => {
     try {
       const r = ris(data);
@@ -496,7 +556,6 @@
       setTimeout(() => (copyRISBtn.textContent = "Copy RIS"), 1200);
     }
   });
-
   copyCSLBtn.addEventListener("click", async () => {
     try {
       const j = csl(data);
@@ -514,7 +573,6 @@
     uiPrefs.dark = document.body.classList.contains("dark");
     await chrome.storage.local.set({ ui: uiPrefs });
   });
-
   langSel.addEventListener("change", async () => {
     uiPrefs.lang = langSel.value;
     await chrome.storage.local.set({ ui: uiPrefs });

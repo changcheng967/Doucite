@@ -30,20 +30,35 @@
     <div class="panel">
       <div class="panel-header" data-i18n="metadata">Metadata</div>
       <div class="grid">
-        <label data-i18n="title_label">Title<input id="title" type="text"></label>
-        <label data-i18n="authors_label">Author(s)<input id="authors" type="text" placeholder="Comma separated"></label>
+        <label data-i18n="title_label">Title<input id="title" type="text" placeholder="Document title"></label>
+        <label data-i18n="authors_label">Author(s)<input id="authors" type="text" placeholder="Comma separated (e.g., Last, First; Last, First)"></label>
         <label data-i18n="date_label">Date<input id="date" type="text" placeholder="YYYY-MM-DD or 3 December 2020"></label>
-        <label data-i18n="publisher_label">Publisher<input id="publisher" type="text"></label>
-        <label data-i18n="url_label">URL<input id="url" type="text"></label>
+        <label data-i18n="publisher_label">Publisher<input id="publisher" type="text" placeholder="Organization or site"></label>
+        <label data-i18n="url_label">URL<input id="url" type="text" placeholder="https://..."></label>
         <label>DOI<input id="doi" type="text" placeholder="10.xxxx/...."></label>
       </div>
       <div class="panel-actions">
         <button id="apply" class="primary" data-i18n="apply">Apply changes</button>
-        <button id="saveOverride" data-i18n="save_override">Save site override</button>
-        <a class="link" href="https://github.com/changcheng967/Doucite" target="_blank" rel="noopener">Repo</a>
-        <a class="link" href="https://github.com/changcheng967" target="_blank" rel="noopener">Author</a>
+        <label class="toggle">
+          <input type="checkbox" id="lockCitation">
+          <span>Lock citation (freeze preview)</span>
+        </label>
         <span id="status" class="status" aria-live="polite"></span>
       </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-header">Overrides</div>
+      <div class="overrides">
+        <button id="loadAuto">Load auto</button>
+        <button id="loadPageOverride">Load page override</button>
+        <button id="savePageOverride">Save page override</button>
+        <button id="clearPageOverride">Clear page override</button>
+        <button id="loadSiteOverride">Load site override</button>
+        <button id="saveSiteOverride">Save site override</button>
+        <button id="clearSiteOverride">Clear site override</button>
+      </div>
+      <div class="hint">Page override is bound to the exact URL. Site override applies to the domain.</div>
     </div>
 
     <div class="panel">

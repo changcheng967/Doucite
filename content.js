@@ -1,7 +1,7 @@
-// content.js — Doucite v3.0.1 metadata extraction
-// Deep fallbacks, JSON-LD, visible-text heuristics, PDF detection, canonical URL,
-// title cleanup (drops site suffixes), DOI safeguards (popup uses shouldUseDOI), corporate author normalization,
-// and site overrides (lop.parl.ca, arXiv, SSRN, PubMed). Exposes payload safely.
+// content.js — Doucite v3.1.0
+// Layered extraction, title cleanup (site suffix removal), canonical URL,
+// corporate author normalization, DOI detection, PDF detection,
+// site overrides (lop.parl.ca, arXiv, SSRN, PubMed). Safe payload exposure.
 
 (function () {
   const text = (el) => (el && el.textContent ? el.textContent.trim() : "");
@@ -63,14 +63,12 @@
     } catch { return host; }
   }
 
+  // Clean title: drop site suffixes and separators
   function cleanTitle(s) {
     if (!s) return "";
-    // Split on common separators used by site suffixes
     const parts = s.split(/\s*\|\s*|\s+—\s+|\s+-\s+|\s+·\s+/);
     let candidate = parts[0] || s;
-    // Drop explicit site suffix tokens after separators
     candidate = candidate.replace(/\s*\|\s*(US\s*EPA|EPA|United States Environmental Protection Agency)\s*$/i, "");
-    // Normalize whitespace
     candidate = candidate.trim().replace(/\s+/g, " ");
     return candidate;
   }
