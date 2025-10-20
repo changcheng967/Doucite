@@ -1,12 +1,9 @@
-// content.js — Doucite v3.2.0
-// Extraction layer that exposes a stable payload at window.__DOUCITE__
-// and responds to GET_CITATION_DATA messages. No storage performed here.
-
+// content.js — Doucite v3.3.0
+// Extraction layer: title, authors, publisher, canonical url, doi, isPDF,
+// published vs modified detection (exposed separately).
 (function () {
   const text = (el) => (el && el.textContent ? el.textContent.trim() : "");
   const attr = (el, name) => (el ? el.getAttribute(name) || "" : "");
-  const host = location.hostname.replace(/^www\./, "").toLowerCase();
-
   function safeJSONLD() {
     const out = [];
     document.querySelectorAll('script[type="application/ld+json"]').forEach((s) => {
@@ -14,7 +11,6 @@
     });
     return out;
   }
-
   function canonicalURL() {
     try {
       const c = document.querySelector('link[rel="canonical"]');
@@ -25,7 +21,6 @@
       return u.href;
     } catch { return location.href; }
   }
-
   function guessIsPDF() {
     try {
       const href = location.href.toLowerCase();
@@ -34,7 +29,6 @@
     } catch {}
     return false;
   }
-
   function cleanTitle(s) {
     if (!s) return "";
     const parts = s.split(/\s*\|\s*|\s+—\s+|\s+-\s+|\s+·\s+/);
@@ -64,11 +58,9 @@
 
   function getAuthors() {
     const authors = new Set();
-    // citation meta
     document.querySelectorAll('meta[name="citation_author"], meta[property="DC.creator"], meta[name="author"]').forEach((m) => {
       if (m.content) authors.add(m.content.trim());
     });
-    // JSON-LD
     const ld = safeJSONLD();
     for (const node of ld) {
       if (!node) continue;
@@ -78,7 +70,6 @@
       else if (typeof a === "string") authors.add(a.trim());
       else if (a && a.name) authors.add(a.name.trim());
     }
-    // byline heuristics
     const selectors = ['.byline', '.article-author', '.author', '.author-name', '[itemprop="author"]', '.pub-info', '.submitted-by'];
     for (const sel of selectors) {
       const el = document.querySelector(sel);
@@ -103,37 +94,35 @@
     return document.location.hostname.replace(/^www\./, "");
   }
 
-  function getDateRaw() {
-    // Prefer visible time elements then metadata
+  function getDates() {
+    // return object { published: "...", modified: "..." } where available (strings)
+    const res = { published: "", modified: "" };
     try {
+      // visible time elements first
       const timeEls = Array.from(document.querySelectorAll("time[datetime], time"));
       for (const t of timeEls) {
-        if (t && t.getAttribute) {
-          const dt = t.getAttribute("datetime") || t.textContent;
-          if (dt && dt.trim()) return dt.trim();
+        const dt = t.getAttribute && (t.getAttribute("datetime") || t.textContent);
+        if (dt && dt.trim()) {
+          if (!res.published) res.published = dt.trim();
+          else if (!res.modified) res.modified = dt.trim();
         }
       }
-      const metaCandidates = [
-        'meta[name="citation_publication_date"]',
-        'meta[property="article:published_time"]',
-        'meta[property="DC.date.created"]',
-        'meta[property="DC.date.created"]',
-        'meta[property="DC.date.modified"]',
-        'meta[name="date"]',
-        'meta[property="og:updated_time"]'
-      ];
-      for (const sel of metaCandidates) {
-        const m = document.querySelector(sel);
-        if (m && m.content) return m.content.trim();
-      }
+      // meta tags
+      const metaPub = document.querySelector('meta[property="article:published_time"], meta[property="DC.date.created"], meta[property="DC.date.created"]');
+      if (metaPub && metaPub.content) res.published = res.published || metaPub.content.trim();
+      const metaMod = document.querySelector('meta[property="article:modified_time"], meta[property="og:updated_time"], meta[property="DC.date.modified"]');
+      if (metaMod && metaMod.content) res.modified = res.modified || metaMod.content.trim();
+      // JSON-LD
       const ld = safeJSONLD();
       for (const node of ld) {
-        if (node && (node.datePublished || node.dateCreated || node.uploadDate || node.dateModified)) {
-          return node.datePublished || node.dateCreated || node.uploadDate || node.dateModified;
-        }
+        if (!node) continue;
+        if (node.datePublished && !res.published) res.published = node.datePublished;
+        if (node.dateCreated && !res.published) res.published = node.dateCreated;
+        if (node.dateModified && !res.modified) res.modified = node.dateModified;
+        if (node.uploadDate && !res.published) res.published = node.uploadDate;
       }
     } catch {}
-    return "";
+    return res;
   }
 
   function getDOI() {
@@ -158,10 +147,13 @@
     return s;
   }
 
+  const dates = getDates();
   const payload = {
     title: getTitle(),
     authors: getAuthors(),
-    date: getDateRaw(),
+    published: dates.published || "",
+    modified: dates.modified || "",
+    chosenDate: "", // left empty — popup will offer choice (published/modified/n.d.)
     url: canonicalURL(),
     siteName: getPublisher(),
     publisher: normalizePublisherName(getPublisher()),
@@ -169,7 +161,6 @@
     isPDF: guessIsPDF()
   };
 
-  // Expose payload consistently
   window.__DOUCITE__ = payload;
 
   chrome.runtime.onMessage?.addListener((msg, sender, sendResponse) => {

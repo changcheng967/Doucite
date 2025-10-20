@@ -8,7 +8,7 @@
 <body>
   <div class="wrap">
     <div class="toolbar">
-      <div class="brand">Doucite</div>
+      <div class="brand">Doucite <span class="version">v3.3.0</span></div>
       <div class="controls">
         <select id="style"><option value="apa">APA 7</option><option value="mla">MLA 9</option><option value="chicago">Chicago</option><option value="ieee">IEEE</option><option value="harvard">Harvard</option><option value="vancouver">Vancouver</option></select>
         <button id="rescan">↻</button>
@@ -17,15 +17,23 @@
     </div>
 
     <div class="panel">
-      <div class="panel-header">Metadata</div>
+      <div class="panel-header">Metadata (editable)</div>
       <div class="grid">
         <label>Title<input id="title" type="text"></label>
         <label>Author(s)<input id="authors" type="text" placeholder="Comma separated (Last, First)"></label>
-        <label>Date<input id="date" type="text" placeholder="YYYY-MM-DD or 3 December 2020"></label>
+        <label>Date (choose below)<input id="date" type="text" placeholder="YYYY-MM-DD or 3 December 2020"></label>
         <label>Publisher<input id="publisher" type="text"></label>
         <label>URL<input id="url" type="text"></label>
         <label>DOI<input id="doi" type="text" placeholder="10.xxxx/....."></label>
       </div>
+
+      <div class="panel-subheader">Detected dates (choose which to cite)</div>
+      <div class="date-choices">
+        <label><input type="radio" name="dateChoice" value="published" id="dateChoicePublished"> Use published date (<span id="detPublished">none</span>)</label>
+        <label><input type="radio" name="dateChoice" value="modified" id="dateChoiceModified"> Use modified date (<span id="detModified">none</span>)</label>
+        <label><input type="radio" name="dateChoice" value="nd" id="dateChoiceND"> No date (n.d.)</label>
+      </div>
+
       <div class="panel-actions">
         <button id="apply" class="primary">Apply changes</button>
         <label><input id="lockCitation" type="checkbox"> Lock citation (freeze preview)</label>
@@ -68,19 +76,10 @@
       </div>
     </div>
 
-    <div class="panel">
-      <div class="panel-header">Batch</div>
-      <div class="batch">
-        <button id="collectCurrent">Add current page</button>
-        <button id="collectAllTabs">Add all tabs</button>
-        <button id="clearBatch">Clear list</button>
-        <select id="batchStyle"><option value="apa">APA 7</option></select>
-        <button id="exportBatch">Export list</button>
-      </div>
-      <div id="batchList" class="batch-list"></div>
+    <div class="panel credits">
+      <div>By <strong>changcheng967</strong> • With help from <strong>Doulet Media</strong></div>
+      <div><a href="https://github.com/changcheng967/Doucite" target="_blank" rel="noopener">GitHub</a></div>
     </div>
-
-    <div class="credits">By <strong>changcheng967</strong></div>
   </div>
 
   <script src="utils.js"></script>
