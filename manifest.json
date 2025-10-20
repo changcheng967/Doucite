@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "Doucite",
-  "version": "3.5.1",
-  "description": "Doucite — robust citation generator with improved author parsing, visible-first extraction, date choice, overrides, and exports.",
+  "version": "3.6.0",
+  "description": "Doucite — robust citation generator with corporate-author normalization, visible-first extraction, and reliable overrides.",
   "permissions": ["activeTab", "scripting", "clipboardWrite", "storage", "tabs"],
   "host_permissions": ["<all_urls>"],
   "action": {

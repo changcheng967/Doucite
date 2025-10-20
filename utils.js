@@ -1,4 +1,4 @@
-// utils.js — Doucite v3.5.0 helpers (name parsing, date normalization, sentence case, joins, slug)
+// utils.js — unchanged helpers (name parsing, date normalization, sentence case, joins, slug)
 
 window.CiteUtils = (function () {
   function splitName(full) {
