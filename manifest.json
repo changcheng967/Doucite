@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "Doucite",
-  "version": "3.0.0",
-  "description": "Doucite — ultra-accurate, user-friendly citations with batch export, multiple styles, RIS/CSL-JSON, and i18n. Repo: https://github.com/changcheng967/Doucite",
+  "version": "3.0.1",
+  "description": "Doucite — ultra-accurate, user-friendly citations with batch export, multiple styles, RIS/CSL-JSON, i18n, and robust error handling. Repo: https://github.com/changcheng967/Doucite",
   "permissions": ["activeTab", "scripting", "clipboardWrite", "storage", "tabs"],
   "host_permissions": ["<all_urls>"],
   "action": {

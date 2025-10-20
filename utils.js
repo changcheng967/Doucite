@@ -1,4 +1,4 @@
-// utils.js — Doucite v3.0.0 utilities (name parsing, dates, casing, joins, slugs)
+// utils.js — Doucite v3.0.1 utilities (name parsing, dates, casing, joins, slugs, month index)
 window.CiteUtils = (function () {
   function splitName(full) {
     const f = (full || "").trim();

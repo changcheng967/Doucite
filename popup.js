@@ -1,4 +1,5 @@
-// popup.js — Doucite v3.0.0: styles, exports (BibTeX/RIS/CSL), batch mode, i18n, modern UI
+// popup.js — Doucite v3.0.1: styles, exports (BibTeX/RIS/CSL), batch mode, i18n,
+// modern UI, conservative DOI, APA punctuation fix, robust error handling.
 
 (async function () {
   async function getTab() {
@@ -9,11 +10,15 @@
   async function fetchData(tabId) {
     try {
       const res = await chrome.tabs.sendMessage(tabId, { type: "GET_CITATION_DATA" });
-      return res || {};
-    } catch {
+      if (res && !res.error) return res;
+    } catch {}
+    // Try injecting content script if not present yet
+    try {
       await chrome.scripting.executeScript({ target: { tabId }, files: ["content.js"] });
       const res2 = await chrome.tabs.sendMessage(tabId, { type: "GET_CITATION_DATA" });
       return res2 || {};
+    } catch {
+      return {};
     }
   }
 
@@ -52,7 +57,7 @@
   const tab = await getTab();
   let data = await fetchData(tab.id);
 
-  // Overrides
+  // Storage
   const siteKey = (new URL(data.url || "https://example.com")).hostname;
   const stored = await chrome.storage.local.get(["overrides", "batch", "ui"]);
   const overrides = stored.overrides || {};
@@ -123,6 +128,21 @@
 
   function corporateAuthor(d) { return d.publisher || d.siteName || ""; }
 
+  // Conservative DOI usage
+  function shouldUseDOI(d) {
+    const doi = d.doi || "";
+    if (!doi) return false;
+
+    // If meta or JSON-LD references DOI, trust it
+    // content.js already read meta/ld; here we conservatively avoid gov domains unless explicit
+    const govDomain =
+      /\.(gov|gc\.ca|gov\.uk)$/i.test((new URL(d.url || "https://example.com")).hostname) ||
+      /epa\.gov$/i.test((new URL(d.url || "https://example.com")).hostname);
+    if (govDomain) return false;
+
+    return true;
+  }
+
   // Styles
   function apaAuthors(authors, d, useCorp) {
     if (!authors.length) return useCorp ? corporateAuthor(d) : "";
@@ -160,7 +180,6 @@
 
   function ieeeAuthors(authors) {
     if (!authors.length) return "";
-    // J. Smith, T. Nguyen
     return authors.map((a) => {
       const s = window.CiteUtils.splitName(a);
       const initials = (s.firstMiddle || "").split(/\s+/).filter(Boolean).map((p) => p[0].toUpperCase() + ".").join(" ");
@@ -170,7 +189,6 @@
 
   function harvardAuthors(authors) {
     if (!authors.length) return "";
-    // Last, F. M., Last, F. M.
     return authors.map((a) => {
       const s = window.CiteUtils.splitName(a);
       const initials = (s.firstMiddle || "").split(/\s+/).filter(Boolean).map((p) => p[0].toUpperCase() + ".").join(" ");
@@ -180,7 +198,6 @@
 
   function vancouverAuthors(authors) {
     if (!authors.length) return "";
-    // Last FM, Last FM
     return authors.map((a) => {
       const s = window.CiteUtils.splitName(a);
       const initials = (s.firstMiddle || "").split(/\s+/).filter(Boolean).map((p) => p[0].toUpperCase()).join("");
@@ -201,7 +218,7 @@
     const dateStr = date.year ? `(${date.year}${date.month ? `, ${date.month}` : ""}${date.day ? ` ${date.day}` : ""}).` : "(n.d.).";
     const title = titleByStyle(d, "apa");
     const site = d.publisher || d.siteName;
-    const doiPart = d.doi ? ` https://doi.org/${d.doi}` : "";
+    const doiPart = (shouldUseDOI(d) && d.doi) ? ` https://doi.org/${d.doi}` : "";
     const retrieved = includeAccessed.checked ? ` Retrieved ${window.CiteUtils.today()}, from ${d.url}` : ` ${d.url}`;
     if (!authorStr) return `${title}. ${dateStr} ${site}.${doiPart}${retrieved}`;
     return `${authorStr} ${dateStr} ${title}. ${site}.${doiPart}${retrieved}`;
@@ -213,7 +230,7 @@
     const date = window.CiteUtils.normalizeDate(d.date);
     const dateStr = window.CiteUtils.formatDateMLA(date);
     const titleQuoted = `“${titleByStyle(d, "mla")}.”`;
-    const doiPart = d.doi ? ` DOI: ${d.doi}.` : "";
+    const doiPart = d.doi && shouldUseDOI(d) ? ` DOI: ${d.doi}.` : "";
     const accessed = includeAccessed.checked ? ` Accessed ${window.CiteUtils.todayMLA()}.` : "";
     if (!authorStr) return `${titleQuoted} ${site}, ${dateStr}, ${d.url}.${doiPart}${accessed}`;
     return `${authorStr}. ${titleQuoted} ${site}, ${dateStr}, ${d.url}.${doiPart}${accessed}`;
@@ -225,15 +242,14 @@
     const date = window.CiteUtils.normalizeDate(d.date);
     const dateStr = window.CiteUtils.formatDateChicago(date);
     const titleQuoted = `“${titleByStyle(d, "chicago")}.”`;
-    const doiPart = d.doi ? ` https://doi.org/${d.doi}` : "";
+    const doiPart = d.doi && shouldUseDOI(d) ? ` https://doi.org/${d.doi}` : "";
     const accessed = includeAccessed.checked ? ` Accessed ${window.CiteUtils.todayChicago()}.` : "";
     if (!authorStr) return `${titleQuoted} ${site}, ${dateStr}. ${d.url}.${doiPart}${accessed}`;
     return `${authorStr}. ${titleQuoted} ${site}, ${dateStr}. ${d.url}.${doiPart}${accessed}`;
   }
 
   function ieee(d) {
-    // [1] T. Nguyen, "The Arctic: Environmental Issues", Library of Parliament, 2020. Available: URL.
-    const idx = 1; // single item preview
+    const idx = 1;
     const authorStr = ieeeAuthors(d.authors || []);
     const year = window.CiteUtils.normalizeDate(d.date).year || "n.d.";
     const title = titleByStyle(d, "ieee");
@@ -242,7 +258,6 @@
   }
 
   function harvard(d) {
-    // Nguyen, T. (2020) The Arctic: Environmental issues. Library of Parliament. Available at: URL (Accessed 20 Oct 2025).
     const authorStr = harvardAuthors(d.authors || []);
     const date = window.CiteUtils.normalizeDate(d.date);
     const year = date.year || "n.d.";
@@ -253,7 +268,6 @@
   }
 
   function vancouver(d) {
-    // Nguyen T. The Arctic: Environmental issues. Library of Parliament; 2020. Available from: URL.
     const authorStr = vancouverAuthors(d.authors || []);
     const year = window.CiteUtils.normalizeDate(d.date).year || "n.d.";
     const title = titleByStyle(d, "vancouver");
@@ -274,7 +288,11 @@
   }
 
   function refreshCitation() {
-    output.value = formatByStyle(data, styleSel.value);
+    try {
+      output.value = formatByStyle(data, styleSel.value);
+    } catch {
+      output.value = "Error: Could not format citation. Try applying changes or rescanning.";
+    }
   }
   refreshCitation();
 
@@ -299,7 +317,7 @@
       title: d.title || "",
       year: date.year || "",
       url: d.url,
-      doi: d.doi || "",
+      doi: d.doi && shouldUseDOI(d) ? d.doi : "",
       publisher: d.publisher || d.siteName || "",
       note: d.isPDF ? "PDF" : ""
     };
@@ -319,7 +337,7 @@
       auLines,
       `PY  - ${year}`,
       `T2  - ${d.publisher || d.siteName || ""}`,
-      d.doi ? `DO  - ${d.doi}` : "",
+      d.doi && shouldUseDOI(d) ? `DO  - ${d.doi}` : "",
       `UR  - ${d.url}`,
       d.isPDF ? "N1  - PDF" : "",
       "ER  -"
@@ -328,7 +346,6 @@
   }
 
   function csl(d) {
-    // Minimal CSL-JSON
     const date = window.CiteUtils.normalizeDate(d.date);
     const obj = {
       type: "document",
@@ -339,7 +356,7 @@
       }),
       issued: date.year ? { "date-parts": [[parseInt(date.year, 10), (date.month ? window.CiteUtils.monthIndex(date.month) + 1 : undefined), (date.day ? parseInt(date.day, 10) : undefined)].filter(Boolean)] } : undefined,
       publisher: d.publisher || d.siteName || "",
-      DOI: d.doi || undefined,
+      DOI: d.doi && shouldUseDOI(d) ? d.doi : undefined,
       URL: d.url
     };
     return JSON.stringify(obj, null, 2);
@@ -353,12 +370,17 @@
   renderBatch();
 
   async function collectFromTab(tabId) {
-    const payload = await fetchData(tabId);
-    batch.push(payload);
-    await chrome.storage.local.set({ batch });
-    renderBatch();
-    statusEl.textContent = "Added.";
-    setTimeout(() => (statusEl.textContent = ""), 1000);
+    try {
+      const payload = await fetchData(tabId);
+      batch.push(payload);
+      await chrome.storage.local.set({ batch });
+      renderBatch();
+      statusEl.textContent = "Added.";
+      setTimeout(() => (statusEl.textContent = ""), 1000);
+    } catch {
+      statusEl.textContent = "Error: Failed to add page.";
+      setTimeout(() => (statusEl.textContent = ""), 1500);
+    }
   }
 
   collectCurrentBtn.addEventListener("click", async () => {
@@ -367,12 +389,17 @@
   });
 
   collectAllTabsBtn.addEventListener("click", async () => {
-    const tabs = await chrome.tabs.query({ currentWindow: true });
-    for (const t of tabs) {
-      try { await collectFromTab(t.id); } catch {}
+    try {
+      const tabs = await chrome.tabs.query({ currentWindow: true });
+      for (const t of tabs) {
+        await collectFromTab(t.id);
+      }
+      statusEl.textContent = "Collected all tabs.";
+      setTimeout(() => (statusEl.textContent = ""), 1200);
+    } catch {
+      statusEl.textContent = "Error: Could not collect tabs.";
+      setTimeout(() => (statusEl.textContent = ""), 1500);
     }
-    statusEl.textContent = "Collected all tabs.";
-    setTimeout(() => (statusEl.textContent = ""), 1200);
   });
 
   clearBatchBtn.addEventListener("click", async () => {
@@ -382,11 +409,16 @@
   });
 
   exportBatchBtn.addEventListener("click", async () => {
-    const style = batchStyleSel.value;
-    const list = batch.map((d) => formatByStyle(d, style)).join("\n\n");
-    await navigator.clipboard.writeText(list);
-    statusEl.textContent = "Batch exported to clipboard.";
-    setTimeout(() => (statusEl.textContent = ""), 1200);
+    try {
+      const style = batchStyleSel.value;
+      const list = batch.map((d) => formatByStyle(d, style)).join("\n\n");
+      await navigator.clipboard.writeText(list);
+      statusEl.textContent = "Batch exported to clipboard.";
+      setTimeout(() => (statusEl.textContent = ""), 1200);
+    } catch {
+      statusEl.textContent = "Error: Failed to export.";
+      setTimeout(() => (statusEl.textContent = ""), 1500);
+    }
   });
 
   // Events
@@ -398,55 +430,83 @@
   applyBtn.addEventListener("click", applyEdits);
 
   saveOverrideBtn.addEventListener("click", async () => {
-    const key = (new URL(data.url || "https://example.com")).hostname;
-    const saved = await chrome.storage.local.get(["overrides"]);
-    const overrides = saved.overrides || {};
-    overrides[key] = {
-      title: data.title, authors: data.authors, date: data.date, publisher: data.publisher, doi: data.doi
-    };
-    await chrome.storage.local.set({ overrides });
-    statusEl.textContent = "Override saved.";
-    setTimeout(() => (statusEl.textContent = ""), 1200);
+    try {
+      const key = (new URL(data.url || "https://example.com")).hostname;
+      const saved = await chrome.storage.local.get(["overrides"]);
+      const overrides = saved.overrides || {};
+      overrides[key] = { title: data.title, authors: data.authors, date: data.date, publisher: data.publisher, doi: data.doi };
+      await chrome.storage.local.set({ overrides });
+      statusEl.textContent = "Override saved.";
+      setTimeout(() => (statusEl.textContent = ""), 1200);
+    } catch {
+      statusEl.textContent = "Error: Failed to save override.";
+      setTimeout(() => (statusEl.textContent = ""), 1500);
+    }
   });
 
   rescanBtn.addEventListener("click", async () => {
-    const t = await getTab();
-    data = await fetchData(t.id);
-    const key = (new URL(data.url || "https://example.com")).hostname;
-    const saved = await chrome.storage.local.get(["overrides"]);
-    const overrides = saved.overrides || {};
-    if (overrides[key]) data = { ...data, ...overrides[key] };
-    hydrateFields(data);
-    refreshCitation();
-    statusEl.textContent = "Rescanned.";
-    setTimeout(() => (statusEl.textContent = ""), 1200);
+    try {
+      const t = await getTab();
+      data = await fetchData(t.id);
+      const key = (new URL(data.url || "https://example.com")).hostname;
+      const saved = await chrome.storage.local.get(["overrides"]);
+      const overrides = saved.overrides || {};
+      if (overrides[key]) data = { ...data, ...overrides[key] };
+      hydrateFields(data);
+      refreshCitation();
+      statusEl.textContent = "Rescanned.";
+      setTimeout(() => (statusEl.textContent = ""), 1200);
+    } catch {
+      statusEl.textContent = "Error: Rescan failed.";
+      setTimeout(() => (statusEl.textContent = ""), 1500);
+    }
   });
 
   copyBtn.addEventListener("click", async () => {
-    await navigator.clipboard.writeText(output.value);
-    copyBtn.textContent = "Copied!";
-    setTimeout(() => (copyBtn.textContent = "Copy citation"), 1200);
+    try {
+      await navigator.clipboard.writeText(output.value);
+      copyBtn.textContent = "Copied!";
+      setTimeout(() => (copyBtn.textContent = "Copy citation"), 1200);
+    } catch {
+      copyBtn.textContent = "Copy failed";
+      setTimeout(() => (copyBtn.textContent = "Copy citation"), 1200);
+    }
   });
 
   copyBibBtn.addEventListener("click", async () => {
-    const bib = bibtex(data);
-    await navigator.clipboard.writeText(bib);
-    copyBibBtn.textContent = "Copied!";
-    setTimeout(() => (copyBibBtn.textContent = "Copy BibTeX"), 1200);
+    try {
+      const bib = bibtex(data);
+      await navigator.clipboard.writeText(bib);
+      copyBibBtn.textContent = "Copied!";
+      setTimeout(() => (copyBibBtn.textContent = "Copy BibTeX"), 1200);
+    } catch {
+      copyBibBtn.textContent = "Copy failed";
+      setTimeout(() => (copyBibBtn.textContent = "Copy BibTeX"), 1200);
+    }
   });
 
   copyRISBtn.addEventListener("click", async () => {
-    const r = ris(data);
-    await navigator.clipboard.writeText(r);
-    copyRISBtn.textContent = "Copied!";
-    setTimeout(() => (copyRISBtn.textContent = "Copy RIS"), 1200);
+    try {
+      const r = ris(data);
+      await navigator.clipboard.writeText(r);
+      copyRISBtn.textContent = "Copied!";
+      setTimeout(() => (copyRISBtn.textContent = "Copy RIS"), 1200);
+    } catch {
+      copyRISBtn.textContent = "Copy failed";
+      setTimeout(() => (copyRISBtn.textContent = "Copy RIS"), 1200);
+    }
   });
 
   copyCSLBtn.addEventListener("click", async () => {
-    const j = csl(data);
-    await navigator.clipboard.writeText(j);
-    copyCSLBtn.textContent = "Copied!";
-    setTimeout(() => (copyCSLBtn.textContent = "Copy CSL-JSON"), 1200);
+    try {
+      const j = csl(data);
+      await navigator.clipboard.writeText(j);
+      copyCSLBtn.textContent = "Copied!";
+      setTimeout(() => (copyCSLBtn.textContent = "Copy CSL-JSON"), 1200);
+    } catch {
+      copyCSLBtn.textContent = "Copy failed";
+      setTimeout(() => (copyCSLBtn.textContent = "Copy CSL-JSON"), 1200);
+    }
   });
 
   darkBtn.addEventListener("click", async () => {
