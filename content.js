@@ -1,14 +1,14 @@
-// content.js — Doucite v3.7.0
-// Visible-first extraction, robust author normalization, corporate mapping, exposes window.__DOUCITE__
+// content.js — Doucite v3.7.2
+// Highest-accuracy byline extraction: strips provenance, splits correctly, dedupes, exposes window.__DOUCITE__.
 
 (function () {
-  const text = (el) => (el && el.textContent ? el.textContent.trim() : "");
-  const attr = (el, n) => (el ? el.getAttribute(n) || "" : "");
-  const WAIT_MS = 1400;
+  const text = el => (el && el.textContent ? el.textContent.trim() : "");
+  const attr = (el,n) => (el ? el.getAttribute(n) || "" : "");
+  const WAIT_MS = 1200;
 
   function safeJSONLD() {
     const out = [];
-    document.querySelectorAll('script[type="application/ld+json"]').forEach((s) => {
+    document.querySelectorAll('script[type="application/ld+json"]').forEach(s => {
       try { out.push(JSON.parse(s.textContent)); } catch {}
     });
     return out;
@@ -17,7 +17,7 @@
   function canonicalURL() {
     try {
       const c = document.querySelector('link[rel="canonical"]');
-      const href = c ? attr(c, "href") : location.href;
+      const href = c ? attr(c,"href") : location.href;
       const u = new URL(href, location.href);
       u.hash = "";
       ["utm_source","utm_medium","utm_campaign","utm_term","utm_content"].forEach(p => u.searchParams.delete(p));
@@ -35,69 +35,68 @@
 
   function cleanTitle(s) {
     if (!s) return "";
-    return String(s).split(/\s*\|\s*|\s+—\s+|\s+-\s+|\s+·\s+/)[0].trim().replace(/\s+/g, " ");
+    return String(s).split(/\s*\|\s*|\s+—\s+|\s+-\s+|\s+·\s+/)[0].trim().replace(/\s+/g," ");
   }
 
-  // corporate map
-  const CORPORATE_MAP = [
-    { rx: /\b(us\s*epa|u\.s\.?\s*epa|epa)\b/i, name: "U.S. Environmental Protection Agency" },
-    { rx: /\b(ns?idc|national snow and ice data center)\b/i, name: "National Snow and Ice Data Center" }
+  // Provenance tokens that must never become authors
+  const PROVENANCE = [
+    "npr","wbur","nsidc","national snow and ice data center","all things considered","heard on",
+    "noaa","ap","reuters","pbs","from","staff","editorial"
   ];
-
-  function normalizeCorporateName(s) {
-    if (!s) return "";
-    for (const m of CORPORATE_MAP) if (m.rx.test(s)) return m.name;
-    return s;
-  }
-
-  // provenance tokens indicative of sources not names
-  const PROVENANCE = ["npr","wbur","nsidc","national snow and ice data center","all things considered","heard on","from","ap","reuters","pbs","noaa"];
 
   function looksLikeProvenance(s) {
     if (!s) return false;
-    const lower = s.toLowerCase().replace(/[^a-z0-9\s]/g," ").trim();
-    if (!lower) return false;
-    for (const t of PROVENANCE) if (lower === t || lower.includes(t)) return true;
+    const low = s.toLowerCase().replace(/[^a-z0-9\s]/g," ").trim();
+    if (!low) return false;
+    for (const p of PROVENANCE) if (low === p || low.includes(p)) return true;
     if (/^[A-Z]{2,6}$/.test(s) && s.length <= 6) return true;
     return false;
   }
 
-  // Split raw byline into plausible fragments
+  // Carefully split byline into candidate fragments
   function splitBylineRaw(raw) {
     if (!raw) return [];
-    const r = raw.replace(/\s*[\u2014\u2013–—]\s*/g, " - ").trim();
-    // separators: slash, pipe, semicolon, " and ", "&", newline
-    const parts = r.split(/\s*\/\s*|\s*\|\s*|\s*;\s*|\r?\n|\s+\&\s+|\s+ and \s+/i).map(p => p.trim()).filter(Boolean);
-    return parts.flatMap(p => {
-      const cleaned = p.replace(/^(By|BY|by)\s+/i, "").trim();
-      if (/\bfrom\b/i.test(cleaned)) return cleaned.split(/\bfrom\b/i).map(x => x.trim()).filter(Boolean);
-      if (cleaned.includes(" - ")) return cleaned.split(/\s*-\s*/).map(x => x.trim()).filter(Boolean);
-      return cleaned;
+    let r = String(raw).replace(/\u200B/g,"").trim();
+    // remove leading "By" or "BY" and common prefixes
+    r = r.replace(/^[\s\r\n]*By[:\s]+/i, "");
+    // normalize separators
+    const parts = r.split(/\s*\/\s*|\s*\|\s*|\s*;\s*|\r?\n|\s+\&\s+|\s+ and \s+/i).map(p=>p.trim()).filter(Boolean);
+    // handle concatenated patterns like "Barbara Moran / WBURTwila Moon" by inserting separator between capitalized runs
+    const expanded = [];
+    parts.forEach(p => {
+      // break where lowercase/uppercase boundary suggests two names without separator
+      const toks = p.split(/(?<=[a-z])(?=[A-Z][a-z]+\b)/).map(x=>x.trim()).filter(Boolean);
+      toks.forEach(t => expanded.push(t));
     });
+    return expanded;
   }
 
-  // clean fragment to name or corporate body
+  // Remove provenance tokens, stray parentheses, trailing source words
   function normalizeAuthorFragment(frag) {
     if (!frag) return "";
     let s = String(frag).trim();
-    s = s.replace(/\u200B/g,"");
-    s = s.replace(/^By\s+/i,"").trim();
-    s = s.replace(/^(Heard on|Heard in|From)\b.*$/i,"").trim();
-    s = s.replace(/\(\s*(WBUR|NPR|NSIDC|National Snow and Ice Data Center|WBUR News|All Things Considered|NOAA)\s*\)\s*$/i,"").trim();
-    s = s.replace(/,\s*(WBUR|NPR|NSIDC|National Snow and Ice Data Center|WBUR News|All Things Considered|NOAA)$/i,"").trim();
-    s = s.replace(/^[\-:;,\s]+|[\-:;,\s]+$/g,"").trim();
-    s = s.replace(/\s{2,}/g," ").trim();
-    if (!s) return "";
+    // remove common parenthetical provenance like " (WBUR)" or "(NSIDC)"
+    s = s.replace(/\(\s*(WBUR|NPR|NSIDC|National Snow and Ice Data Center|All Things Considered|NOAA|From)\s*\)/gi, "").trim();
+    // remove appended provenance after comma/dash
+    s = s.replace(/[,\-–]\s*(WBUR|NPR|NSIDC|National Snow and Ice Data Center|All Things Considered|NOAA|From)$/i, "").trim();
+    // remove leading "By"
+    s = s.replace(/^[\s,;:-]*By\s+/i,"").trim();
+    // strip stray punctuation
+    s = s.replace(/^[\W_]+|[\W_]+$/g,"").trim();
+    // if looks like provenance, drop
     if (looksLikeProvenance(s)) return "";
-    // corporate normalization
-    const corp = normalizeCorporateName(s);
-    if (corp && corp !== s) return corp;
-    // if contains slash or pipe, choose non-provenance part
-    if (s.includes("/") || s.includes("|")) {
-      const parts = s.split(/\/|\|/).map(p=>p.trim()).filter(Boolean);
-      for (const p of parts) if (!looksLikeProvenance(p)) return p;
-      return parts[0]||"";
+    // if string contains no letters, drop
+    if (!/[a-zA-Z]/.test(s)) return "";
+    // split out trailing provenance glued to name (e.g., "Barbara MoranWBUR")
+    for (const p of PROVENANCE) {
+      const re = new RegExp("(.+?)\\b" + p + "\\b","i");
+      const m = s.match(re);
+      if (m && m[1]) { s = m[1].trim(); break; }
     }
+    // collapse multiple spaces
+    s = s.replace(/\s{2,}/g," ").trim();
+    // final drop if empty or provenance
+    if (!s || looksLikeProvenance(s)) return "";
     return s;
   }
 
@@ -105,9 +104,9 @@
     const seen = new Set();
     const out = [];
     for (const a of arr) {
-      const k = String(a).toLowerCase().replace(/[^\w]+/g," ").trim();
-      if (!k) continue;
-      if (!seen.has(k)) { seen.add(k); out.push(a.trim()); }
+      const key = String(a).toLowerCase().replace(/\s+/g," ").trim();
+      if (!key) continue;
+      if (!seen.has(key)) { seen.add(key); out.push(a.trim()); }
     }
     return out;
   }
@@ -120,34 +119,34 @@
       if (el && text(el)) found.push(text(el).trim());
     }
     try {
-      const top = (document.body && document.body.innerText) ? document.body.innerText.slice(0, 1200) : "";
-      const m = top.match(/\bBy\s+([A-Z][a-zA-Z\-\.'\s]{1,120})/);
+      const top = (document.body && document.body.innerText) ? document.body.innerText.slice(0,1400) : "";
+      const m = top.match(/\bBy\s+([^\n]{0,200})/i);
       if (m && m[1]) found.push(m[1].trim());
     } catch {}
     return Array.from(new Set(found));
   }
 
   function visibleDateCandidates() {
-    const found = [];
+    const out = [];
     document.querySelectorAll("time[datetime], time").forEach(t => {
       const v = (t.getAttribute && (t.getAttribute("datetime") || t.textContent)) || t.textContent;
-      if (v && String(v).trim()) found.push(String(v).trim());
+      if (v && String(v).trim()) out.push(String(v).trim());
     });
     const dateSels = ['.published','time.published','.pubdate','.publication-date','.byline__date','.date', '.kicker time', '.article__date', '.timestamp'];
     for (const sel of dateSels) {
       const el = document.querySelector(sel);
-      if (el && text(el)) found.push(text(el).trim());
+      if (el && text(el)) out.push(text(el).trim());
     }
     try {
-      const top = (document.body && document.body.innerText) ? document.body.innerText.slice(0, 800) : "";
+      const top = (document.body && document.body.innerText) ? document.body.innerText.slice(0,800) : "";
       const iso = top.match(/\b(20\d{2}-\d{2}-\d{2})\b/);
       const long = top.match(/\b(\d{1,2}\s+(January|February|March|April|May|June|July|August|September|October|November|December)\s+20\d{2})\b/i);
-      if (iso) found.push(iso[1]);
-      if (long) found.push(long[1]);
-      const pubMatch = top.match(/(Published|Updated|Last updated|Heard on)[:\s]*([A-Za-z0-9,\s]+)/i);
-      if (pubMatch && pubMatch[2]) found.push(pubMatch[2].trim());
+      if (iso) out.push(iso[1]);
+      if (long) out.push(long[1]);
+      const pub = top.match(/(Published|Updated|Last updated|Published on)[:\s]*([A-Za-z0-9,\s\-:]+)/i);
+      if (pub && pub[2]) out.push(pub[2].trim());
     } catch {}
-    return Array.from(new Set(found)).slice(0,8);
+    return Array.from(new Set(out)).slice(0,8);
   }
 
   function parseAuthors() {
@@ -160,7 +159,7 @@
         if (n) candidates.push(n);
       }
     }
-    // fallback: meta authors
+    // fallback meta tags
     if (!candidates.length) {
       document.querySelectorAll('meta[name="citation_author"], meta[name="author"], meta[property="DC.creator"]').forEach(m => {
         if (m.content) {
@@ -172,7 +171,7 @@
         }
       });
     }
-    // JSON-LD fallback
+    // fallback json-ld
     if (!candidates.length) {
       const ld = safeJSONLD();
       for (const n of ld) {
@@ -187,19 +186,12 @@
         else if (a && a.name) { const r = normalizeAuthorFragment(a.name); if (r) candidates.push(r); }
       }
     }
-    const list = dedupe(candidates).map(a => normalizeCorporateName(a));
-    // If single item and maps to corporate canonical, return canonical corporate name
-    if (list.length === 1) {
-      const canon = normalizeCorporateName(list[0]);
-      if (canon) return [canon];
-    }
-    return list;
+    return dedupe(candidates);
   }
 
   function extractOnce() {
     const ld = safeJSONLD();
-
-    // Title
+    // title
     let title = "";
     const h1 = document.querySelector("h1");
     if (h1 && text(h1)) title = cleanTitle(text(h1));
@@ -216,10 +208,9 @@
     }
     if (!title && document.title) title = cleanTitle(document.title);
 
-    // Authors
     const authors = parseAuthors();
 
-    // Dates
+    // dates
     const visibleDates = visibleDateCandidates();
     let published = visibleDates[0] || "";
     let modified = visibleDates[1] || "";
@@ -246,7 +237,7 @@
       }
     }
 
-    // Publisher/site name
+    // publisher/site
     let publisher = "";
     const metaPubName = document.querySelector('meta[name="publisher"], meta[property="og:site_name"]');
     if (metaPubName && metaPubName.content) publisher = metaPubName.content.trim();
@@ -257,7 +248,7 @@
         else if (ldPub.publisher.name) publisher = ldPub.publisher.name;
       }
     }
-    if (!publisher) publisher = document.location.hostname.replace(/^www\./, "");
+    if (!publisher) publisher = document.location.hostname.replace(/^www\./,"");
 
     // DOI
     let doi = "";
@@ -282,12 +273,11 @@
       modified: modified || "",
       url: canonicalURL(),
       siteName: publisher,
-      publisher: (function (s) { if (!s) return ""; if (/^US\s*EPA$/i.test(s) || /^EPA$/i.test(s) || /United States Environmental Protection Agency/i.test(s)) return "U.S. Environmental Protection Agency"; return s; })(publisher),
+      publisher: (function (s) { if (!s) return ""; if (/^US\s*EPA$/i.test(s) || /^EPA$/i.test(s)) return "U.S. Environmental Protection Agency"; return s; })(publisher),
       doi: doi || "",
       isPDF: guessIsPDF(),
       visibleCandidates: { bylines: visibleBylineCandidates(), dates: visibleDateCandidates() },
-      visibleFound: visibleFound,
-      extractionEmpty: extractionEmpty
+      visibleFound, extractionEmpty
     };
   }
 
@@ -299,28 +289,17 @@
     const observer = new MutationObserver(() => {
       const now = Date.now();
       const cur = extractOnce();
-      if (!cur.extractionEmpty) {
-        window.__DOUCITE__ = cur; exposed = true; observer.disconnect();
-      } else if (now - start > waitMs) {
-        window.__DOUCITE__ = cur; exposed = true; observer.disconnect();
-      }
+      if (!cur.extractionEmpty) { window.__DOUCITE__ = cur; exposed = true; observer.disconnect(); }
+      else if (now - start > waitMs) { window.__DOUCITE__ = cur; exposed = true; observer.disconnect(); }
     });
-    observer.observe(document.documentElement || document.body || document, { childList: true, subtree: true, attributes: true, characterData: true });
-    setTimeout(() => {
-      if (!exposed) {
-        const final = extractOnce();
-        window.__DOUCITE__ = final;
-        observer.disconnect();
-      }
-    }, waitMs + 80);
+    observer.observe(document.documentElement || document.body || document, { childList:true, subtree:true, attributes:true, characterData:true });
+    setTimeout(() => { if (!exposed) { window.__DOUCITE__ = extractOnce(); observer.disconnect(); } }, waitMs + 80);
   }
 
   try { observeAndExpose(); } catch (e) { window.__DOUCITE__ = extractOnce(); }
 
   chrome.runtime.onMessage?.addListener((msg, sender, sendResponse) => {
     if (!msg) return;
-    if (msg.type === "GET_CITATION_DATA") {
-      sendResponse({ ok: true, data: window.__DOUCITE__ || extractOnce() });
-    }
+    if (msg.type === "GET_CITATION_DATA") sendResponse({ ok: true, data: window.__DOUCITE__ || extractOnce() });
   });
 })();

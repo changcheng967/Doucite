@@ -1,13 +1,11 @@
 {
   "manifest_version": 3,
   "name": "Doucite",
-  "version": "3.7.0",
-  "description": "Doucite — accurate, visible-first citation extraction, clean author parsing, reliable overrides, APA 7, exports.",
+  "version": "3.7.2",
+  "description": "Doucite — accurate citation extraction with robust byline parsing and APA 7 output.",
   "permissions": ["activeTab", "scripting", "clipboardWrite", "storage", "tabs"],
   "host_permissions": ["<all_urls>"],
   "action": { "default_title": "Doucite", "default_popup": "popup.html" },
-  "content_scripts": [
-    { "matches": ["<all_urls>"], "js": ["content.js"], "run_at": "document_idle" }
-  ],
+  "content_scripts": [{ "matches": ["<all_urls>"], "js": ["content.js"], "run_at": "document_idle" }],
   "web_accessible_resources": [{ "resources": ["popup.css"], "matches": ["<all_urls>"] }]
 }

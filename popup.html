@@ -8,15 +8,10 @@
 <body>
   <div class="wrap">
     <div class="toolbar">
-      <div class="brand">Doucite <span class="version">v3.7.0</span></div>
+      <div class="brand">Doucite <span class="version">v3.7.2</span></div>
       <div class="controls">
-        <select id="style">
-          <option value="apa">APA 7</option>
-          <option value="mla">MLA 9</option>
-          <option value="chicago">Chicago</option>
-        </select>
-        <button id="rescan" title="Rescan page">↻</button>
-        <button id="darkmode" title="Toggle dark mode">☾</button>
+        <select id="style"><option value="apa">APA 7</option></select>
+        <button id="rescan">↻</button>
       </div>
     </div>
 
@@ -24,26 +19,26 @@
       <div class="panel-header">Metadata (editable)</div>
       <div class="grid">
         <label>Title<input id="title" type="text"></label>
-        <label>Author(s)<input id="authors" type="text" placeholder="Comma separated (Last, First)"></label>
-        <label>Date (manual)<input id="date" type="text" placeholder="YYYY-MM-DD or 3 December 2020"></label>
+        <label>Author(s)<input id="authors" type="text" placeholder="Comma separated"></label>
+        <label>Date (manual)<input id="date" type="text" placeholder="YYYY-MM-DD"></label>
         <label>Publisher<input id="publisher" type="text"></label>
         <label>URL<input id="url" type="text"></label>
-        <label>DOI<input id="doi" type="text" placeholder="10.xxxx/..."></label>
+        <label>DOI<input id="doi" type="text"></label>
       </div>
 
       <div class="panel-subheader">Detected dates — choose one</div>
       <div class="date-choices">
-        <label><input type="radio" name="dateChoice" value="published" id="dateChoicePublished"> Use published (<span id="detPublished">none</span>)</label>
-        <label><input type="radio" name="dateChoice" value="modified" id="dateChoiceModified"> Use modified (<span id="detModified">none</span>)</label>
-        <label><input type="radio" name="dateChoice" value="nd" id="dateChoiceND"> No date (n.d.)</label>
+        <label><input type="radio" name="dateChoice" id="dateChoicePublished"> Use published (<span id="detPublished">none</span>)</label>
+        <label><input type="radio" name="dateChoice" id="dateChoiceModified"> Use modified (<span id="detModified">none</span>)</label>
+        <label><input type="radio" name="dateChoice" id="dateChoiceND"> No date (n.d.)</label>
       </div>
 
       <div id="quickFillContainer"></div>
 
       <div class="panel-actions">
-        <button id="apply" class="primary">Apply changes</button>
+        <button id="apply">Apply changes</button>
         <label><input id="lockCitation" type="checkbox"> Lock citation</label>
-        <span id="status" class="status" aria-live="polite"></span>
+        <span id="status"></span>
       </div>
     </div>
 
@@ -54,20 +49,15 @@
         <button id="loadPageOverride">Load page override</button>
         <button id="savePageOverride">Save page override</button>
         <button id="clearPageOverride">Clear page override</button>
-        <button id="loadSiteOverride">Load site override</button>
-        <button id="saveSiteOverride">Save site override</button>
-        <button id="clearSiteOverride">Clear site override</button>
       </div>
-      <div class="hint">Page override bound to exact URL; site override applies to domain.</div>
     </div>
 
     <div class="panel">
       <div class="panel-header">Options</div>
       <div class="options">
-        <label><input id="includeAccessed" type="checkbox" checked> Include “Retrieved” date</label>
+        <label><input id="includeAccessed" type="checkbox" checked> Include Retrieved</label>
         <label><input id="sentenceCase" type="checkbox" checked> Sentence case title (APA)</label>
         <label><input id="useCorporateAuthor" type="checkbox" checked> Use publisher when author missing</label>
-        <label><input id="pdfSuffix" type="checkbox" checked> Append “[PDF]” when detected</label>
       </div>
     </div>
 
@@ -75,16 +65,8 @@
       <div class="panel-header">Preview</div>
       <textarea id="output" rows="6" readonly></textarea>
       <div class="panel-actions">
-        <button id="copy" class="primary">Copy citation</button>
-        <button id="copyBib">Copy BibTeX</button>
-        <button id="copyRIS">Copy RIS</button>
-        <button id="copyCSL">Copy CSL-JSON</button>
+        <button id="copy">Copy citation</button>
       </div>
-    </div>
-
-    <div class="panel credits">
-      <div>By <strong>changcheng967</strong> • With help from <strong>Doulet Media</strong></div>
-      <div><a href="https://github.com/changcheng967/Doucite" target="_blank" rel="noopener">GitHub</a></div>
     </div>
   </div>
 
