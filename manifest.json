@@ -1,9 +1,9 @@
 {
   "manifest_version": 3,
   "name": "Doucite",
-  "version": "2.3.0",
-  "description": "Doucite — advanced one-click citations with robust extraction for messy pages, PDFs, canonical URLs, JSON-LD, and gov/academic sites. By changcheng967 and Doulet Media. Repo: https://github.com/changcheng967/Doucite",
-  "permissions": ["activeTab", "scripting", "clipboardWrite", "storage"],
+  "version": "3.0.0",
+  "description": "Doucite — ultra-accurate, user-friendly citations with batch export, multiple styles, RIS/CSL-JSON, and i18n. Repo: https://github.com/changcheng967/Doucite",
+  "permissions": ["activeTab", "scripting", "clipboardWrite", "storage", "tabs"],
   "host_permissions": ["<all_urls>"],
   "action": {
     "default_title": "Doucite",

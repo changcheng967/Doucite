@@ -1,4 +1,6 @@
-// content.js — Doucite metadata extraction (deep fallbacks, JSON-LD, visible text, PDF, canonical, and lop.parl.ca override)
+// content.js — Doucite v3.0.0 metadata extraction
+// Deep fallbacks, JSON-LD, visible-text heuristics, PDF detection, canonical URL,
+// special-case overrides (lop.parl.ca, arXiv, SSRN, PubMed) with easy extension points.
 
 (function () {
   const text = (el) => (el && el.textContent ? el.textContent.trim() : "");
@@ -13,9 +15,7 @@
   function guessIsPDF() {
     const href = location.href.toLowerCase();
     if (href.includes(".pdf")) return true;
-    const embed = document.querySelector(
-      'embed[type="application/pdf"], iframe[src*=".pdf"], object[data*=".pdf"]'
-    );
+    const embed = document.querySelector('embed[type="application/pdf"], iframe[src*=".pdf"], object[data*=".pdf"]');
     return !!embed;
   }
 
@@ -25,13 +25,9 @@
     try {
       const u = new URL(href, location.href);
       u.hash = "";
-      ["utm_source", "utm_medium", "utm_campaign", "utm_term", "utm_content"].forEach((p) => {
-        if (u.searchParams.has(p)) u.searchParams.delete(p);
-      });
+      ["utm_source", "utm_medium", "utm_campaign", "utm_term", "utm_content"].forEach((p) => u.searchParams.delete(p));
       return u.href;
-    } catch {
-      return location.href;
-    }
+    } catch { return location.href; }
   }
 
   function fromJSONLD(mapper) {
@@ -42,10 +38,7 @@
         const nodes = Array.isArray(data) ? data : [data];
         for (const n of nodes) {
           const v = mapper(n);
-          if (v) {
-            out = v;
-            break;
-          }
+          if (v) { out = v; break; }
         }
       } catch {}
     });
@@ -53,10 +46,7 @@
   }
 
   function getSiteName() {
-    const el =
-      document.querySelector('meta[property="og:site_name"]') ||
-      document.querySelector('meta[name="application-name"]') ||
-      document.querySelector('meta[name="publisher"]');
+    const el = document.querySelector('meta[property="og:site_name"], meta[name="application-name"], meta[name="publisher"]');
     const v = el ? attr(el, "content") : "";
     if (v) return v.trim();
     const pubLD = fromJSONLD((n) => {
@@ -69,22 +59,17 @@
   }
 
   function getTitle() {
-    const metaTitle =
-      document.querySelector('meta[name="citation_title"]') ||
-      document.querySelector('meta[name="dc.title"]');
-    if (metaTitle) {
-      const ct = attr(metaTitle, "content");
-      if (ct) return ct.trim();
+    const mt = document.querySelector('meta[name="citation_title"], meta[name="dc.title"]');
+    if (mt) {
+      const ct = attr(mt, "content"); if (ct) return ct.trim();
     }
     const og = document.querySelector('meta[property="og:title"]');
     if (og) {
-      const t = attr(og, "content");
-      if (t) return t.trim();
+      const t = attr(og, "content"); if (t) return t.trim();
     }
     const ldTitle = fromJSONLD((n) => n.headline || n.name || n.alternativeHeadline);
     if (ldTitle) return ldTitle.trim();
 
-    // Visible H1 title — reject generic section headers
     const h1 = document.querySelector("h1");
     if (h1 && text(h1)) {
       const t = text(h1).trim();
@@ -103,14 +88,13 @@
   }
 
   function parseNameToPerson(a) {
-    const s = (a || "").trim();
-    if (!s) return "";
+    const s = (a || "").trim(); if (!s) return "";
     const low = s.toLowerCase();
     if (BAD_AUTHOR_TOKENS.some((tok) => low.includes(tok))) return "";
     if (/^[^,]+,\s*.+/.test(s)) return s; // "Last, First Middle"
     const words = s.split(/\s+/);
-    const capCount = words.filter((w) => /^[A-Z][a-z]+$/.test(w)).length;
-    if (capCount >= 2) return s; // likely a proper name
+    const capCount = words.filter((w) => /^[A-Z][a-z\-]+$/.test(w)).length;
+    if (capCount >= 2) return s;
     return "";
   }
 
@@ -118,13 +102,11 @@
     const authors = [];
 
     document.querySelectorAll('meta[name="citation_author"], meta[name="dc.creator"]').forEach((el) => {
-      const v = attr(el, "content");
-      if (v) authors.push(v);
+      const v = attr(el, "content"); if (v) authors.push(v);
     });
 
     document.querySelectorAll('meta[name="author"]').forEach((el) => {
-      const v = attr(el, "content");
-      if (v) authors.push(v);
+      const v = attr(el, "content"); if (v) authors.push(v);
     });
 
     document.querySelectorAll('script[type="application/ld+json"]').forEach((el) => {
@@ -145,10 +127,7 @@
     });
 
     if (authors.length === 0) {
-      const blocks = [
-        ".byline", ".article-author", ".author", ".author-name", ".c-byline",
-        '[itemprop="author"]', ".metadata", ".pub-info"
-      ];
+      const blocks = ['.byline', '.article-author', '.author', '.author-name', '.c-byline', '[itemprop="author"]', '.metadata', '.pub-info'];
       for (const sel of blocks) {
         const el = document.querySelector(sel);
         if (el) {
@@ -165,17 +144,12 @@
     }
 
     const cleaned = authors
-      .flatMap((a) =>
-        (a || "")
-          .split(/[|;\/]+/)
-          .map((s) => s.trim())
-          .filter(Boolean)
-      )
+      .flatMap((a) => (a || "").split(/[|;\/]+/).map((s) => s.trim()).filter(Boolean))
       .filter((a, i, arr) => arr.indexOf(a) === i)
       .map(parseNameToPerson)
       .filter(Boolean);
 
-    return cleaned.slice(0, 10);
+    return cleaned.slice(0, 20);
   }
 
   function getPublisher() {
@@ -187,23 +161,17 @@
     });
     if (publisher) return publisher;
 
-    const pubMeta =
-      document.querySelector('meta[name="publisher"]') ||
-      document.querySelector('meta[name="citation_publisher"]');
+    const pubMeta = document.querySelector('meta[name="publisher"], meta[name="citation_publisher"]');
     if (pubMeta) {
-      const p = attr(pubMeta, "content");
-      if (p) return p.trim();
+      const p = attr(pubMeta, "content"); if (p) return p.trim();
     }
     return getSiteName();
   }
 
   function getDateRaw() {
-    const pubdate =
-      document.querySelector('meta[name="citation_publication_date"]') ||
-      document.querySelector('meta[name="dc.date"]');
+    const pubdate = document.querySelector('meta[name="citation_publication_date"], meta[name="dc.date"]');
     if (pubdate) {
-      const v = attr(pubdate, "content");
-      if (v) return v;
+      const v = attr(pubdate, "content"); if (v) return v;
     }
 
     const candidates = [
@@ -237,9 +205,7 @@
   }
 
   function getDOI() {
-    const meta =
-      document.querySelector('meta[name="citation_doi"]') ||
-      document.querySelector('meta[name="dc.identifier"]');
+    const meta = document.querySelector('meta[name="citation_doi"], meta[name="dc.identifier"]');
     const metaVal = meta ? attr(meta, "content") : "";
     const norm = (s) => {
       const m = (s || "").match(/10\.\d{4,9}\/[-._;()/:A-Z0-9]+/i);
@@ -254,36 +220,62 @@
     try {
       const u = new URL(canonicalURL());
       return decodeURIComponent(u.pathname.split("/").pop() || "");
-    } catch {
-      return "";
-    }
+    } catch { return ""; }
   }
 
-  // Special-case override: Library of Parliament Research Publications (lop.parl.ca)
+  // Overrides: extendable stubs for known sources
+
   function specialCaseParlCA(payload) {
     if (!/lop\.parl\.ca/i.test(location.hostname)) return payload;
-
     const h1 = document.querySelector("h1");
-    if (h1 && text(h1) && !/^\s*research publications\s*$/i.test(text(h1))) {
-      payload.title = text(h1);
-    }
-
+    if (h1 && text(h1) && !/^\s*research publications\s*$/i.test(text(h1))) payload.title = text(h1);
     const bodyText = document.body && document.body.innerText ? document.body.innerText : "";
-    if (/Thai Nguyen/i.test(bodyText)) {
-      payload.authors = ["Nguyen, Thai"];
-    }
-
+    if (/Thai Nguyen/i.test(bodyText)) payload.authors = ["Nguyen, Thai"];
     const dateMatch = bodyText.match(/\b(20\d{2}-\d{2}-\d{2}|(\d{1,2})\s+(January|February|March|April|May|June|July|August|September|October|November|December)\s+20\d{2})\b/i);
-    if (dateMatch) {
-      if (/^20\d{2}-\d{2}-\d{2}$/.test(dateMatch[0])) {
-        payload.date = dateMatch[0];
-      } else {
-        payload.date = "2020-12-03"; // known ISO date for that publication
-      }
-    }
-
+    if (dateMatch) payload.date = /^20\d{2}-\d{2}-\d{2}$/.test(dateMatch[0]) ? dateMatch[0] : "2020-12-03";
     payload.publisher = "Library of Parliament";
     payload.url = canonicalURL();
+    return payload;
+  }
+
+  function specialCaseArXiv(payload) {
+    if (!/arxiv\.org/i.test(location.hostname)) return payload;
+    // Title from h1, authors from author-list, date from submission history
+    const h1 = document.querySelector("h1.title");
+    if (h1) payload.title = text(h1).replace(/^Title:\s*/i, "");
+    const authors = Array.from(document.querySelectorAll(".authors a, .authors span")).map((el) => text(el)).filter(Boolean);
+    if (authors.length) payload.authors = authors;
+    const hist = document.querySelector("#submission-history, .submission-history");
+    const match = hist ? text(hist).match(/\b(\d{1,2}\s+(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+20\d{2})\b/i) : null;
+    if (match) payload.date = match[1];
+    payload.publisher = "arXiv";
+    return payload;
+  }
+
+  function specialCaseSSRN(payload) {
+    if (!/ssrn\.com/i.test(location.hostname)) return payload;
+    const h1 = document.querySelector("h1");
+    if (h1) payload.title = text(h1);
+    const authors = Array.from(document.querySelectorAll('.authors a, [data-testid="author-name"]')).map((el) => text(el)).filter(Boolean);
+    if (authors.length) payload.authors = authors;
+    const dateMeta = document.querySelector('meta[name="citation_publication_date"]');
+    if (dateMeta) payload.date = attr(dateMeta, "content");
+    payload.publisher = "SSRN";
+    return payload;
+  }
+
+  function specialCasePubMed(payload) {
+    if (!/ncbi\.nlm\.nih\.gov/i.test(location.hostname)) return payload;
+    const h1 = document.querySelector("h1");
+    if (h1) payload.title = text(h1);
+    const authors = Array.from(document.querySelectorAll(".authors-list .full-name, .author-list .full-name")).map((el) => text(el)).filter(Boolean);
+    if (authors.length) payload.authors = authors;
+    const dateEl = document.querySelector(".cit, .publication-date");
+    if (dateEl) {
+      const m = text(dateEl).match(/\b(20\d{2}-\d{2}-\d{2}|(January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{4})\b/i);
+      if (m) payload.date = m[0];
+    }
+    payload.publisher = "PubMed";
     return payload;
   }
 
@@ -299,7 +291,11 @@
     pdfFilename: pdfFilename()
   };
 
+  // Apply overrides chain
   payload = specialCaseParlCA(payload);
+  payload = specialCaseArXiv(payload);
+  payload = specialCaseSSRN(payload);
+  payload = specialCasePubMed(payload);
 
   window.__DOUCITE__ = payload;
 

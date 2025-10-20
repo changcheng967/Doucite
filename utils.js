@@ -1,36 +1,27 @@
-// utils.js — Doucite utilities (name parsing, dates, casing, joins, slugs)
+// utils.js — Doucite v3.0.0 utilities (name parsing, dates, casing, joins, slugs)
 window.CiteUtils = (function () {
   function splitName(full) {
     const f = (full || "").trim();
     if (!f) return { firstMiddle: "", last: "", initials: "" };
-
     if (/,/.test(f)) {
       const [l, rest] = f.split(",").map((s) => s.trim());
-      const initials = (rest || "")
-        .split(/\s+/)
-        .filter(Boolean)
-        .map((p) => (p[0] ? p[0].toUpperCase() + "." : ""))
-        .join(" ");
+      const initials = (rest || "").split(/\s+/).filter(Boolean).map((p) => p[0] ? p[0].toUpperCase() + "." : "").join(" ");
       return { firstMiddle: rest || "", last: l || "", initials };
     }
-
     const parts = f.split(/\s+/).filter(Boolean);
-    if (parts.length === 1) {
-      return { firstMiddle: "", last: parts[0], initials: "" };
-    }
+    if (parts.length === 1) return { firstMiddle: "", last: parts[0], initials: "" };
     const last = parts.pop();
     const firstMiddle = parts.join(" ");
-    const initials = parts
-      .map((p) => (p[0] ? p[0].toUpperCase() + "." : ""))
-      .join(" ");
+    const initials = parts.map((p) => p[0] ? p[0].toUpperCase() + "." : "").join(" ");
     return { firstMiddle, last, initials };
   }
 
   function monthNames() {
-    return [
-      "January", "February", "March", "April", "May", "June",
-      "July", "August", "September", "October", "November", "December"
-    ];
+    return ["January","February","March","April","May","June","July","August","September","October","November","December"];
+  }
+  function monthIndex(name) {
+    const idx = monthNames().findIndex((m) => m.toLowerCase() === String(name).toLowerCase());
+    return idx >= 0 ? idx : 0;
   }
 
   function normalizeDate(raw) {
@@ -51,16 +42,10 @@ window.CiteUtils = (function () {
 
     const dt = new Date(r);
     if (!isNaN(dt.getTime())) {
-      return {
-        year: String(dt.getFullYear()),
-        month: monthNames()[dt.getMonth()],
-        day: String(dt.getDate())
-      };
+      return { year: String(dt.getFullYear()), month: monthNames()[dt.getMonth()], day: String(dt.getDate()) };
     }
 
-    const textMatch = r.match(
-      /(?:(\d{1,2})\s+)?(January|February|March|April|May|June|July|August|September|October|November|December)[,]?\s+(20\d{2})/i
-    );
+    const textMatch = r.match(/(?:(\d{1,2})\s+)?(January|February|March|April|May|June|July|August|September|October|November|December)[,]?\s+(20\d{2})/i);
     if (textMatch) {
       const day = textMatch[1] ? textMatch[1] : "";
       const month = textMatch[2];
@@ -75,9 +60,7 @@ window.CiteUtils = (function () {
     if (!str) return "";
     const s = str.trim();
     let out = s[0].toUpperCase() + s.slice(1).toLowerCase();
-    // Preserve acronyms and all-caps tokens
-    out = out.replace(/\b([A-Z]{2,})\b/g, (m) => m);
-    // Capitalize after colon
+    out = out.replace(/\b([A-Z]{2,})\b/g, (m) => m); // keep acronyms
     out = out.replace(/: ([a-z])/g, (_, c) => ": " + c.toUpperCase());
     return out;
   }
@@ -92,39 +75,29 @@ window.CiteUtils = (function () {
     const m = monthNames()[d.getMonth()];
     return `${d.getDate()} ${m} ${d.getFullYear()}`;
   }
-  function todayChicago() {
-    return today();
-  }
+  function todayChicago() { return today(); }
 
   function formatDateMLA(date) {
     if (date.year && date.month && date.day) return `${date.day} ${date.month} ${date.year}`;
     if (date.year && date.month) return `${date.month} ${date.year}`;
     return date.year || "n.d.";
   }
-
   function formatDateChicago(date) {
     if (date.year && date.month && date.day) return `${date.month} ${date.day}, ${date.year}`;
     if (date.year && date.month) return `${date.month} ${date.year}`;
     return date.year || "n.d.";
   }
 
-  function slug(s) {
-    return (s || "")
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/^-+|-+$/g, "");
-  }
+  function slug(s) { return (s || "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, ""); }
 
   function joinAPA(names) {
-    // names already have terminal periods
-    if (names.length === 0) return "";
+    if (!names.length) return "";
     if (names.length === 1) return names[0];
     const last = names.pop();
     return `${names.join(", ")}, & ${last}`;
   }
-
   function joinChicago(names) {
-    if (names.length === 0) return "";
+    if (!names.length) return "";
     if (names.length === 1) return names[0];
     const last = names.pop();
     return `${names.join(", ")}, and ${last}`;
@@ -141,6 +114,7 @@ window.CiteUtils = (function () {
     formatDateChicago,
     slug,
     joinAPA,
-    joinChicago
+    joinChicago,
+    monthIndex
   };
 })();

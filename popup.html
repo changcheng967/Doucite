@@ -1,5 +1,5 @@
 <!doctype html>
-<html>
+<html lang="en">
 <head>
   <meta charset="utf-8">
   <title>Doucite</title>
@@ -7,56 +7,83 @@
 </head>
 <body>
   <div class="wrap">
-    <div class="toolbar" role="toolbar" aria-label="Top controls">
+    <div class="toolbar" role="toolbar">
       <div class="brand">Doucite</div>
       <div class="controls">
-        <label class="visually-hidden" for="style">Citation style</label>
         <select id="style" aria-label="Citation style">
           <option value="apa">APA 7</option>
           <option value="mla">MLA 9</option>
           <option value="chicago">Chicago</option>
+          <option value="ieee">IEEE</option>
+          <option value="harvard">Harvard</option>
+          <option value="vancouver">Vancouver</option>
+        </select>
+        <select id="lang" aria-label="Language">
+          <option value="en">English</option>
+          <option value="zh">中文</option>
         </select>
         <button id="rescan" title="Rescan page" aria-label="Rescan page">↻</button>
         <button id="darkmode" title="Toggle dark mode" aria-label="Toggle dark mode">☾</button>
       </div>
     </div>
 
-    <div class="panel" aria-labelledby="meta-header">
-      <div id="meta-header" class="panel-header">Metadata</div>
+    <div class="panel">
+      <div class="panel-header" data-i18n="metadata">Metadata</div>
       <div class="grid">
-        <label>Title<input id="title" type="text"></label>
-        <label>Author(s)<input id="authors" type="text" placeholder="Comma separated"></label>
-        <label>Date<input id="date" type="text" placeholder="YYYY-MM-DD or 3 December 2020"></label>
-        <label>Publisher<input id="publisher" type="text"></label>
-        <label>URL<input id="url" type="text"></label>
+        <label data-i18n="title_label">Title<input id="title" type="text"></label>
+        <label data-i18n="authors_label">Author(s)<input id="authors" type="text" placeholder="Comma separated"></label>
+        <label data-i18n="date_label">Date<input id="date" type="text" placeholder="YYYY-MM-DD or 3 December 2020"></label>
+        <label data-i18n="publisher_label">Publisher<input id="publisher" type="text"></label>
+        <label data-i18n="url_label">URL<input id="url" type="text"></label>
         <label>DOI<input id="doi" type="text" placeholder="10.xxxx/...."></label>
       </div>
       <div class="panel-actions">
-        <button id="apply" class="primary">Apply changes</button>
-        <button id="saveOverride">Save site override</button>
+        <button id="apply" class="primary" data-i18n="apply">Apply changes</button>
+        <button id="saveOverride" data-i18n="save_override">Save site override</button>
         <a class="link" href="https://github.com/changcheng967/Doucite" target="_blank" rel="noopener">Repo</a>
         <a class="link" href="https://github.com/changcheng967" target="_blank" rel="noopener">Author</a>
         <span id="status" class="status" aria-live="polite"></span>
       </div>
     </div>
 
-    <div class="panel" aria-labelledby="opts-header">
-      <div id="opts-header" class="panel-header">Options</div>
+    <div class="panel">
+      <div class="panel-header" data-i18n="options">Options</div>
       <div class="options">
-        <label><input type="checkbox" id="includeAccessed" checked> Include “Retrieved” date</label>
-        <label><input type="checkbox" id="sentenceCase" checked> Sentence case title (APA)</label>
-        <label><input type="checkbox" id="useCorporateAuthor" checked> Use publisher/site when author missing</label>
-        <label><input type="checkbox" id="pdfSuffix" checked> Append “[PDF]” when detected</label>
+        <label><input type="checkbox" id="includeAccessed" checked> <span data-i18n="opt_retrieved">Include “Retrieved” date</span></label>
+        <label><input type="checkbox" id="sentenceCase" checked> <span data-i18n="opt_sentencecase">Sentence case title (APA)</span></label>
+        <label><input type="checkbox" id="useCorporateAuthor" checked> <span data-i18n="opt_corp">Use publisher/site when author missing</span></label>
+        <label><input type="checkbox" id="pdfSuffix" checked> <span data-i18n="opt_pdf">Append “[PDF]” when detected</span></label>
       </div>
     </div>
 
-    <div class="panel" aria-labelledby="preview-header">
-      <div id="preview-header" class="panel-header">Preview</div>
+    <div class="panel">
+      <div class="panel-header" data-i18n="preview">Preview</div>
       <textarea id="output" rows="6" readonly aria-label="Citation preview"></textarea>
       <div class="panel-actions">
-        <button id="copy" class="primary">Copy citation</button>
-        <button id="copyBib">Copy BibTeX</button>
+        <button id="copy" class="primary" data-i18n="copy">Copy citation</button>
+        <button id="copyBib" data-i18n="copy_bib">Copy BibTeX</button>
+        <button id="copyRIS">Copy RIS</button>
+        <button id="copyCSL">Copy CSL-JSON</button>
       </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-header">Batch mode</div>
+      <div class="batch">
+        <button id="collectCurrent">Add current page</button>
+        <button id="collectAllTabs">Add all tabs</button>
+        <button id="clearBatch">Clear list</button>
+        <select id="batchStyle">
+          <option value="apa">APA 7</option>
+          <option value="mla">MLA 9</option>
+          <option value="chicago">Chicago</option>
+          <option value="ieee">IEEE</option>
+          <option value="harvard">Harvard</option>
+          <option value="vancouver">Vancouver</option>
+        </select>
+        <button id="exportBatch">Export list</button>
+      </div>
+      <div id="batchList" class="batch-list"></div>
     </div>
 
     <div class="credits">
