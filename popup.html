@@ -7,42 +7,28 @@
 </head>
 <body>
   <div class="wrap">
-    <div class="toolbar" role="toolbar">
+    <div class="toolbar">
       <div class="brand">Doucite</div>
       <div class="controls">
-        <select id="style" aria-label="Citation style">
-          <option value="apa">APA 7</option>
-          <option value="mla">MLA 9</option>
-          <option value="chicago">Chicago</option>
-          <option value="ieee">IEEE</option>
-          <option value="harvard">Harvard</option>
-          <option value="vancouver">Vancouver</option>
-        </select>
-        <select id="lang" aria-label="Language">
-          <option value="en">English</option>
-          <option value="zh">中文</option>
-        </select>
-        <button id="rescan" title="Rescan page" aria-label="Rescan page">↻</button>
-        <button id="darkmode" title="Toggle dark mode" aria-label="Toggle dark mode">☾</button>
+        <select id="style"><option value="apa">APA 7</option><option value="mla">MLA 9</option><option value="chicago">Chicago</option><option value="ieee">IEEE</option><option value="harvard">Harvard</option><option value="vancouver">Vancouver</option></select>
+        <button id="rescan">↻</button>
+        <button id="darkmode">☾</button>
       </div>
     </div>
 
     <div class="panel">
-      <div class="panel-header" data-i18n="metadata">Metadata</div>
+      <div class="panel-header">Metadata</div>
       <div class="grid">
-        <label data-i18n="title_label">Title<input id="title" type="text" placeholder="Document title"></label>
-        <label data-i18n="authors_label">Author(s)<input id="authors" type="text" placeholder="Comma separated (e.g., Last, First)"></label>
-        <label data-i18n="date_label">Date<input id="date" type="text" placeholder="YYYY-MM-DD or 3 December 2020"></label>
-        <label data-i18n="publisher_label">Publisher<input id="publisher" type="text" placeholder="Organization or site"></label>
-        <label data-i18n="url_label">URL<input id="url" type="text" placeholder="https://..."></label>
-        <label>DOI<input id="doi" type="text" placeholder="10.xxxx/...."></label>
+        <label>Title<input id="title" type="text"></label>
+        <label>Author(s)<input id="authors" type="text" placeholder="Comma separated (Last, First)"></label>
+        <label>Date<input id="date" type="text" placeholder="YYYY-MM-DD or 3 December 2020"></label>
+        <label>Publisher<input id="publisher" type="text"></label>
+        <label>URL<input id="url" type="text"></label>
+        <label>DOI<input id="doi" type="text" placeholder="10.xxxx/....."></label>
       </div>
       <div class="panel-actions">
-        <button id="apply" class="primary" data-i18n="apply">Apply changes</button>
-        <label class="toggle">
-          <input type="checkbox" id="lockCitation">
-          <span>Lock citation (freeze preview)</span>
-        </label>
+        <button id="apply" class="primary">Apply changes</button>
+        <label><input id="lockCitation" type="checkbox"> Lock citation (freeze preview)</label>
         <span id="status" class="status" aria-live="polite"></span>
       </div>
     </div>
@@ -58,53 +44,43 @@
         <button id="saveSiteOverride">Save site override</button>
         <button id="clearSiteOverride">Clear site override</button>
       </div>
-      <div class="hint">Page override is bound to the exact URL. Site override applies to the domain.</div>
+      <div class="hint">Page override bound to exact URL; site override applies to domain.</div>
     </div>
 
     <div class="panel">
-      <div class="panel-header" data-i18n="options">Options</div>
+      <div class="panel-header">Options</div>
       <div class="options">
-        <label><input type="checkbox" id="includeAccessed" checked> <span data-i18n="opt_retrieved">Include “Retrieved” date</span></label>
-        <label><input type="checkbox" id="sentenceCase" checked> <span data-i18n="opt_sentencecase">Sentence case title (APA)</span></label>
-        <label><input type="checkbox" id="useCorporateAuthor" checked> <span data-i18n="opt_corp">Use publisher/site when author missing</span></label>
-        <label><input type="checkbox" id="pdfSuffix" checked> <span data-i18n="opt_pdf">Append “[PDF]” when detected</span></label>
+        <label><input id="includeAccessed" type="checkbox" checked> Include “Retrieved” date</label>
+        <label><input id="sentenceCase" type="checkbox" checked> Sentence case title (APA)</label>
+        <label><input id="useCorporateAuthor" type="checkbox" checked> Use publisher when author missing</label>
+        <label><input id="pdfSuffix" type="checkbox" checked> Append “[PDF]” when detected</label>
       </div>
     </div>
 
     <div class="panel">
-      <div class="panel-header" data-i18n="preview">Preview</div>
-      <textarea id="output" rows="6" readonly aria-label="Citation preview"></textarea>
+      <div class="panel-header">Preview</div>
+      <textarea id="output" rows="6" readonly></textarea>
       <div class="panel-actions">
-        <button id="copy" class="primary" data-i18n="copy">Copy citation</button>
-        <button id="copyBib" data-i18n="copy_bib">Copy BibTeX</button>
+        <button id="copy" class="primary">Copy citation</button>
+        <button id="copyBib">Copy BibTeX</button>
         <button id="copyRIS">Copy RIS</button>
         <button id="copyCSL">Copy CSL-JSON</button>
       </div>
     </div>
 
     <div class="panel">
-      <div class="panel-header">Batch mode</div>
+      <div class="panel-header">Batch</div>
       <div class="batch">
         <button id="collectCurrent">Add current page</button>
         <button id="collectAllTabs">Add all tabs</button>
         <button id="clearBatch">Clear list</button>
-        <select id="batchStyle">
-          <option value="apa">APA 7</option>
-          <option value="mla">MLA 9</option>
-          <option value="chicago">Chicago</option>
-          <option value="ieee">IEEE</option>
-          <option value="harvard">Harvard</option>
-          <option value="vancouver">Vancouver</option>
-        </select>
+        <select id="batchStyle"><option value="apa">APA 7</option></select>
         <button id="exportBatch">Export list</button>
       </div>
       <div id="batchList" class="batch-list"></div>
     </div>
 
-    <div class="credits">
-      By <strong>changcheng967</strong> • With help from <strong>Doulet Media</strong> •
-      <a class="link" href="https://github.com/changcheng967/Doucite" target="_blank" rel="noopener">GitHub</a>
-    </div>
+    <div class="credits">By <strong>changcheng967</strong></div>
   </div>
 
   <script src="utils.js"></script>

@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "Doucite",
-  "version": "3.1.1",
-  "description": "Doucite — accurate, editable citations with overrides, multiple styles, exports (BibTeX/RIS/CSL-JSON), batch mode, i18n, robust error handling.",
+  "version": "3.2.0",
+  "description": "Doucite — editable, overrideable citations (APA/MLA/Chicago/IEEE/Harvard/Vancouver), exports, batch, i18n.",
   "permissions": ["activeTab", "scripting", "clipboardWrite", "storage", "tabs"],
   "host_permissions": ["<all_urls>"],
   "action": {
