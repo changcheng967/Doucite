@@ -1,4 +1,4 @@
-// utils.js — Doucite v3.4.0 helpers (name parsing, date normalization, sentence case, joins, slug)
+// utils.js — Doucite v3.5.0 helpers (name parsing, date normalization, sentence case, joins, slug)
 
 window.CiteUtils = (function () {
   function splitName(full) {
@@ -37,7 +37,6 @@ window.CiteUtils = (function () {
     return { year: "", month: "", day: "" };
   }
 
-  // simple smart sentence-case preserving known proper nouns and mid-word capitals
   const PRESERVE = new Set(["Arctic","Alaska","EPA","U.S.","US","United","States","Environmental","Protection","Agency"]);
   function sentenceCaseSmart(str) {
     if (!str) return "";

@@ -8,7 +8,7 @@
 <body>
   <div class="wrap">
     <div class="toolbar">
-      <div class="brand">Doucite <span class="version">v3.4.0</span></div>
+      <div class="brand">Doucite <span class="version">v3.5.0</span></div>
       <div class="controls">
         <select id="style">
           <option value="apa">APA 7</option>
@@ -41,9 +41,11 @@
         <label><input type="radio" name="dateChoice" value="nd" id="dateChoiceND"> No date (n.d.)</label>
       </div>
 
+      <div id="quickFillContainer"></div>
+
       <div class="panel-actions">
         <button id="apply" class="primary">Apply changes</button>
-        <label><input id="lockCitation" type="checkbox"> Lock citation (freeze preview)</label>
+        <label><input id="lockCitation" type="checkbox"> Lock citation</label>
         <span id="status" class="status" aria-live="polite"></span>
       </div>
     </div>
@@ -59,7 +61,7 @@
         <button id="saveSiteOverride">Save site override</button>
         <button id="clearSiteOverride">Clear site override</button>
       </div>
-      <div class="hint">Page override attached to exact URL; site override applies to domain.</div>
+      <div class="hint">Page override bound to exact URL; site override applies to domain.</div>
     </div>
 
     <div class="panel">

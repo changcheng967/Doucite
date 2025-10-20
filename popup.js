@@ -1,7 +1,6 @@
-// popup.js — Doucite v3.4.0 (UI logic, editable fields, overrides, exports)
+// popup.js — Doucite v3.5.0 (UI logic, visible-candidate quick-fill, overrides, exports)
 
 (async function () {
-  // helpers
   async function getActiveTab() { const [t] = await chrome.tabs.query({ active: true, currentWindow: true }); return t; }
   async function injectIfNeeded(tabId) { try { await chrome.scripting.executeScript({ target: { tabId }, files: ["content.js"] }); } catch {} }
   async function fetchData(tabId) {
@@ -29,6 +28,7 @@
   const dateChoicePublished = document.getElementById("dateChoicePublished");
   const dateChoiceModified = document.getElementById("dateChoiceModified");
   const dateChoiceND = document.getElementById("dateChoiceND");
+  const quickFillContainer = document.getElementById("quickFillContainer");
 
   const applyBtn = document.getElementById("apply");
   const lockCitation = document.getElementById("lockCitation");
@@ -53,6 +53,7 @@
   const copyRISBtn = document.getElementById("copyRIS");
   const copyCSLBtn = document.getElementById("copyCSL");
 
+  // initial fetch
   const tab = await getActiveTab();
   let autoData = await fetchData(tab.id);
   if (autoData.authors && !Array.isArray(autoData.authors)) autoData.authors = String(autoData.authors).split(/[,;\/]+/).map(s=>s.trim()).filter(Boolean);
@@ -61,18 +62,16 @@
   const pageKey = data.url || tab.url || `tab-${tab.id}`;
   const siteKey = (new URL(pageKey)).hostname.replace(/^www\./, "");
 
-  // storage load
+  // load storage
   const stored = await chrome.storage.local.get(["overrides", "pageOverrides", "ui", "batch"]);
   const overrides = stored.overrides || {};
   const pageOverrides = stored.pageOverrides || {};
   let batch = stored.batch || [];
   const ui = stored.ui || {};
 
-  // apply overrides auto->site->page
   if (overrides[siteKey]) data = { ...data, ...overrides[siteKey] };
   if (pageOverrides[pageKey]) data = { ...data, ...pageOverrides[pageKey] };
 
-  // hydrate UI
   function hydrateFields(d) {
     titleEl.value = d.title || "";
     authorsEl.value = (d.authors || []).join(", ");
@@ -89,20 +88,52 @@
   }
   hydrateFields(data);
 
+  // visible-candidate quick-fill UI
+  function renderQuickFill(auto) {
+    quickFillContainer.innerHTML = "";
+    if (!auto) return;
+    if (auto.extractionEmpty) {
+      statusEl.textContent = "No auto metadata found. Use quick-fill or enter fields.";
+    } else {
+      statusEl.textContent = "";
+    }
+    const vis = auto.visibleCandidates || { bylines: [], dates: [] };
+    if (vis.bylines && vis.bylines.length) {
+      const div = document.createElement("div");
+      div.style.marginBottom = "6px";
+      div.textContent = "Detected bylines:";
+      vis.bylines.forEach(b => {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.textContent = b;
+        btn.style.margin = "4px";
+        btn.addEventListener("click", () => { authorsEl.value = b; statusEl.textContent = "Byline imported"; setTimeout(()=>statusEl.textContent="",1200); });
+        div.appendChild(btn);
+      });
+      quickFillContainer.appendChild(div);
+    }
+    if (vis.dates && vis.dates.length) {
+      const div = document.createElement("div");
+      div.style.marginBottom = "6px";
+      div.textContent = "Detected dates:";
+      vis.dates.forEach(d => {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.textContent = d;
+        btn.style.margin = "4px";
+        btn.addEventListener("click", () => { dateEl.value = d; statusEl.textContent = "Date imported"; setTimeout(()=>statusEl.textContent="",1200); });
+        div.appendChild(btn);
+      });
+      quickFillContainer.appendChild(div);
+    }
+  }
+  renderQuickFill(autoData);
+
   function authorsFromInput(val) { return String(val||"").split(",").map(s=>s.trim()).filter(Boolean); }
+  function isGovDomain(url) { try { const h = new URL(url).hostname.toLowerCase(); return /\.(gov|gc\.ca|gov\.uk)$/.test(h) || /epa\.gov$/.test(h); } catch { return false; } }
+  function getChosenDateString(d) { if (dateChoicePublished.checked) return d.published || ""; if (dateChoiceModified.checked) return d.modified || ""; if (dateChoiceND.checked) return ""; return d.published || d.modified || ""; }
 
-  function isGovDomain(url) {
-    try { const h = new URL(url).hostname.toLowerCase(); return /\.(gov|gc\.ca|gov\.uk)$/.test(h) || /epa\.gov$/.test(h); } catch { return false; }
-  }
-
-  function getChosenDateString(d) {
-    if (dateChoicePublished.checked) return d.published || "";
-    if (dateChoiceModified.checked) return d.modified || "";
-    if (dateChoiceND.checked) return "";
-    return d.published || d.modified || "";
-  }
-
-  // formatting: use utils.js helpers
+  // formatting (APA main implemented)
   function buildAPA(d) {
     const chosen = d.chosenDateManual && d.chosenDateManual.trim() ? d.chosenDateManual.trim() : getChosenDateString(d);
     const norm = window.CiteUtils.normalizeDate(chosen);
@@ -155,8 +186,6 @@
   applyBtn.addEventListener("click", () => {
     data.title = titleEl.value.trim();
     data.authors = authorsFromInput(authorsEl.value);
-    data.published = data.published; // keep extracted
-    data.modified = data.modified;
     data.chosenDate = dateChoicePublished.checked ? "published" : dateChoiceModified.checked ? "modified" : "nd";
     if (dateEl.value && dateEl.value.trim()) data.chosenDateManual = dateEl.value.trim();
     data.publisher = publisherEl.value.trim();
@@ -167,66 +196,17 @@
     setTimeout(()=>statusEl.textContent="",1100);
   });
 
-  // overrides: load/save/clear
-  loadAutoBtn.addEventListener("click", () => {
-    data = { ...autoData };
-    hydrateFields(data);
-    if (!lockCitation.checked) refreshPreview();
-    statusEl.textContent = "Loaded auto extraction";
-    setTimeout(()=>statusEl.textContent="",1100);
-  });
+  // overrides
+  loadAutoBtn.addEventListener("click", () => { data = { ...autoData }; hydrateFields(data); renderQuickFill(autoData); if (!lockCitation.checked) refreshPreview(); statusEl.textContent="Loaded auto"; setTimeout(()=>statusEl.textContent="",1200); });
+  loadPageOverrideBtn.addEventListener("click", async () => { const s = await chrome.storage.local.get("pageOverrides"); const p = (s.pageOverrides || {})[pageKey]; if (p) { data = { ...autoData, ...p }; hydrateFields(data); renderQuickFill(autoData); if (!lockCitation.checked) refreshPreview(); statusEl.textContent="Loaded page override"; } else statusEl.textContent="No page override"; setTimeout(()=>statusEl.textContent="",1400); });
+  savePageOverrideBtn.addEventListener("click", async () => { const s = await chrome.storage.local.get("pageOverrides"); const pOv = s.pageOverrides||{}; pOv[pageKey] = { title: data.title, authors: data.authors, published: data.published, modified: data.modified, chosenDate: data.chosenDate, chosenDateManual: data.chosenDateManual, publisher: data.publisher, url: data.url, doi: data.doi }; await chrome.storage.local.set({ pageOverrides: pOv }); statusEl.textContent="Page override saved"; setTimeout(()=>statusEl.textContent="",1200); });
+  clearPageOverrideBtn.addEventListener("click", async () => { const s = await chrome.storage.local.get("pageOverrides"); const pOv = s.pageOverrides||{}; delete pOv[pageKey]; await chrome.storage.local.set({ pageOverrides: pOv }); statusEl.textContent="Page override cleared"; setTimeout(()=>statusEl.textContent="",1200); });
 
-  loadPageOverrideBtn.addEventListener("click", async () => {
-    const s = await chrome.storage.local.get("pageOverrides");
-    const p = (s.pageOverrides || {})[pageKey];
-    if (p) { data = { ...autoData, ...p }; hydrateFields(data); if (!lockCitation.checked) refreshPreview(); statusEl.textContent="Loaded page override"; } else { statusEl.textContent="No page override"; }
-    setTimeout(()=>statusEl.textContent="",1300);
-  });
+  loadSiteOverrideBtn.addEventListener("click", async () => { const s = await chrome.storage.local.get("overrides"); const ov=(s.overrides||{})[siteKey]; if (ov) { data = { ...autoData, ...ov }; hydrateFields(data); renderQuickFill(autoData); if (!lockCitation.checked) refreshPreview(); statusEl.textContent="Loaded site override"; } else statusEl.textContent="No site override"; setTimeout(()=>statusEl.textContent="",1400); });
+  saveSiteOverrideBtn.addEventListener("click", async () => { const s = await chrome.storage.local.get("overrides"); const ov = s.overrides||{}; ov[siteKey] = { title: data.title, authors: data.authors, published: data.published, modified: data.modified, chosenDate: data.chosenDate, chosenDateManual: data.chosenDateManual, publisher: data.publisher, doi: data.doi }; await chrome.storage.local.set({ overrides: ov }); statusEl.textContent="Site override saved"; setTimeout(()=>statusEl.textContent="",1200); });
+  clearSiteOverrideBtn.addEventListener("click", async () => { const s = await chrome.storage.local.get("overrides"); const ov = s.overrides||{}; delete ov[siteKey]; await chrome.storage.local.set({ overrides: ov }); statusEl.textContent="Site override cleared"; setTimeout(()=>statusEl.textContent="",1200); });
 
-  savePageOverrideBtn.addEventListener("click", async () => {
-    const s = await chrome.storage.local.get("pageOverrides");
-    const pOv = s.pageOverrides || {};
-    pOv[pageKey] = { title: data.title, authors: data.authors, published: data.published, modified: data.modified, chosenDate: data.chosenDate, chosenDateManual: data.chosenDateManual, publisher: data.publisher, url: data.url, doi: data.doi };
-    await chrome.storage.local.set({ pageOverrides: pOv });
-    statusEl.textContent = "Page override saved (includes chosen date)";
-    setTimeout(()=>statusEl.textContent="",1200);
-  });
-
-  clearPageOverrideBtn.addEventListener("click", async () => {
-    const s = await chrome.storage.local.get("pageOverrides");
-    const pOv = s.pageOverrides || {};
-    delete pOv[pageKey];
-    await chrome.storage.local.set({ pageOverrides: pOv });
-    statusEl.textContent = "Page override cleared";
-    setTimeout(()=>statusEl.textContent="",1200);
-  });
-
-  loadSiteOverrideBtn.addEventListener("click", async () => {
-    const s = await chrome.storage.local.get("overrides");
-    const ov = (s.overrides || {})[siteKey];
-    if (ov) { data = { ...autoData, ...ov }; hydrateFields(data); if (!lockCitation.checked) refreshPreview(); statusEl.textContent="Loaded site override"; } else { statusEl.textContent="No site override"; }
-    setTimeout(()=>statusEl.textContent="",1300);
-  });
-
-  saveSiteOverrideBtn.addEventListener("click", async () => {
-    const s = await chrome.storage.local.get("overrides");
-    const ov = s.overrides || {};
-    ov[siteKey] = { title: data.title, authors: data.authors, published: data.published, modified: data.modified, chosenDate: data.chosenDate, chosenDateManual: data.chosenDateManual, publisher: data.publisher, doi: data.doi };
-    await chrome.storage.local.set({ overrides: ov });
-    statusEl.textContent = "Site override saved (includes chosen date)";
-    setTimeout(()=>statusEl.textContent="",1200);
-  });
-
-  clearSiteOverrideBtn.addEventListener("click", async () => {
-    const s = await chrome.storage.local.get("overrides");
-    const ov = s.overrides || {};
-    delete ov[siteKey];
-    await chrome.storage.local.set({ overrides: ov });
-    statusEl.textContent = "Site override cleared";
-    setTimeout(()=>statusEl.textContent="",1200);
-  });
-
-  // Exports and copy handlers
+  // exports
   copyBtn.addEventListener("click", async () => { try { await navigator.clipboard.writeText(output.value); copyBtn.textContent="Copied!"; setTimeout(()=>copyBtn.textContent="Copy citation",1200); } catch { copyBtn.textContent="Copy failed"; setTimeout(()=>copyBtn.textContent="Copy citation",1200); } });
 
   copyBibBtn.addEventListener("click", async () => {
@@ -272,7 +252,7 @@
 
   // rescan
   document.getElementById("rescan").addEventListener("click", async () => {
-    try { await injectIfNeeded(tab.id); autoData = await fetchData(tab.id); if (autoData.authors && !Array.isArray(autoData.authors)) autoData.authors = String(autoData.authors).split(/[,;\/]+/).map(s=>s.trim()).filter(Boolean); statusEl.textContent="Rescanned"; setTimeout(()=>statusEl.textContent="",1000); } catch { statusEl.textContent="Rescan failed"; setTimeout(()=>statusEl.textContent="",1500); }
+    try { await injectIfNeeded(tab.id); autoData = await fetchData(tab.id); if (autoData.authors && !Array.isArray(autoData.authors)) autoData.authors = String(autoData.authors).split(/[,;\/]+/).map(s=>s.trim()).filter(Boolean); data = { ...autoData }; hydrateFields(data); renderQuickFill(autoData); if (!lockCitation.checked) refreshPreview(); statusEl.textContent="Rescanned"; setTimeout(()=>statusEl.textContent="",1000); } catch { statusEl.textContent="Rescan failed"; setTimeout(()=>statusEl.textContent="",1500); }
   });
 
   // initial preview
