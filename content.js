@@ -1,5 +1,5 @@
-// content.js — Doucite v3.7.2
-// Highest-accuracy byline extraction: strips provenance, splits correctly, dedupes, exposes window.__DOUCITE__.
+// content.js — Doucite v3.7.3
+// Highest-accuracy byline extraction: strips provenance, fixes parentheses noise, exposes window.__DOUCITE__.
 
 (function () {
   const text = el => (el && el.textContent ? el.textContent.trim() : "");
@@ -40,10 +40,9 @@
 
   // Provenance tokens that must never become authors
   const PROVENANCE = [
-    "npr","wbur","nsidc","national snow and ice data center","all things considered","heard on",
-    "noaa","ap","reuters","pbs","from","staff","editorial"
+    "npr","wbur","nsidc","national snow and ice data center","all things considered",
+    "heard on","noaa","ap","reuters","pbs","from","staff","editorial"
   ];
-
   function looksLikeProvenance(s) {
     if (!s) return false;
     const low = s.toLowerCase().replace(/[^a-z0-9\s]/g," ").trim();
@@ -57,45 +56,57 @@
   function splitBylineRaw(raw) {
     if (!raw) return [];
     let r = String(raw).replace(/\u200B/g,"").trim();
-    // remove leading "By" or "BY" and common prefixes
-    r = r.replace(/^[\s\r\n]*By[:\s]+/i, "");
+    r = r.replace(/^[\s\r\n]*By[:\s]+/i, ""); // remove leading "By"
     // normalize separators
     const parts = r.split(/\s*\/\s*|\s*\|\s*|\s*;\s*|\r?\n|\s+\&\s+|\s+ and \s+/i).map(p=>p.trim()).filter(Boolean);
-    // handle concatenated patterns like "Barbara Moran / WBURTwila Moon" by inserting separator between capitalized runs
+    // expand concatenated patterns (e.g., "...WBURTwila Moon")
     const expanded = [];
     parts.forEach(p => {
-      // break where lowercase/uppercase boundary suggests two names without separator
-      const toks = p.split(/(?<=[a-z])(?=[A-Z][a-z]+\b)/).map(x=>x.trim()).filter(Boolean);
+      const toks = p.split(/(?<=[a-z])(?=[A-Z][a-z]+)/).map(x=>x.trim()).filter(Boolean);
       toks.forEach(t => expanded.push(t));
     });
     return expanded;
   }
 
-  // Remove provenance tokens, stray parentheses, trailing source words
+  // Remove provenance, unmatched parentheses, stray punctuation
   function normalizeAuthorFragment(frag) {
     if (!frag) return "";
     let s = String(frag).trim();
-    // remove common parenthetical provenance like " (WBUR)" or "(NSIDC)"
+
+    // Drop parenthetical provenance
     s = s.replace(/\(\s*(WBUR|NPR|NSIDC|National Snow and Ice Data Center|All Things Considered|NOAA|From)\s*\)/gi, "").trim();
-    // remove appended provenance after comma/dash
+
+    // Remove appended provenance after comma/dash
     s = s.replace(/[,\-–]\s*(WBUR|NPR|NSIDC|National Snow and Ice Data Center|All Things Considered|NOAA|From)$/i, "").trim();
-    // remove leading "By"
+
+    // Remove trailing unmatched closing paren
+    if (s.endsWith(")") && (s.match(/\(/g)||[]).length === 0) s = s.slice(0, -1).trim();
+
+    // Remove leading "By"
     s = s.replace(/^[\s,;:-]*By\s+/i,"").trim();
-    // strip stray punctuation
+
+    // Strip outer stray punctuation
     s = s.replace(/^[\W_]+|[\W_]+$/g,"").trim();
-    // if looks like provenance, drop
+
+    // Drop if looks like provenance
     if (looksLikeProvenance(s)) return "";
-    // if string contains no letters, drop
-    if (!/[a-zA-Z]/.test(s)) return "";
-    // split out trailing provenance glued to name (e.g., "Barbara MoranWBUR")
+
+    // Split slash/pipe and pick non-provenance
+    if (s.includes("/") || s.includes("|")) {
+      const parts = s.split(/\/|\|/).map(p=>p.trim()).filter(Boolean);
+      for (const p of parts) if (!looksLikeProvenance(p)) return p;
+      return parts[0] || "";
+    }
+
+    // Remove glued provenance (e.g., "Barbara MoranWBUR")
     for (const p of PROVENANCE) {
       const re = new RegExp("(.+?)\\b" + p + "\\b","i");
       const m = s.match(re);
       if (m && m[1]) { s = m[1].trim(); break; }
     }
-    // collapse multiple spaces
+
+    // Final cleanup
     s = s.replace(/\s{2,}/g," ").trim();
-    // final drop if empty or provenance
     if (!s || looksLikeProvenance(s)) return "";
     return s;
   }
@@ -191,7 +202,8 @@
 
   function extractOnce() {
     const ld = safeJSONLD();
-    // title
+
+    // Title
     let title = "";
     const h1 = document.querySelector("h1");
     if (h1 && text(h1)) title = cleanTitle(text(h1));
@@ -208,9 +220,10 @@
     }
     if (!title && document.title) title = cleanTitle(document.title);
 
+    // Authors
     const authors = parseAuthors();
 
-    // dates
+    // Dates
     const visibleDates = visibleDateCandidates();
     let published = visibleDates[0] || "";
     let modified = visibleDates[1] || "";
@@ -237,7 +250,7 @@
       }
     }
 
-    // publisher/site
+    // Publisher/site
     let publisher = "";
     const metaPubName = document.querySelector('meta[name="publisher"], meta[property="og:site_name"]');
     if (metaPubName && metaPubName.content) publisher = metaPubName.content.trim();

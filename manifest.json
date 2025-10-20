@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Doucite",
-  "version": "3.7.2",
+  "version": "3.7.3",
   "description": "Doucite — accurate citation extraction with robust byline parsing and APA 7 output.",
   "permissions": ["activeTab", "scripting", "clipboardWrite", "storage", "tabs"],
   "host_permissions": ["<all_urls>"],

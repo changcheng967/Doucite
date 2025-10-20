@@ -1,4 +1,4 @@
-// popup.js — Doucite v3.7.2
+// popup.js — Doucite v3.7.3
 // UI code: hydrate fields, quick-fill, APA preview, overrides persistence.
 
 (async function () {
@@ -17,7 +17,6 @@
     return {};
   }
 
-  // DOM
   const titleEl = document.getElementById("title");
   const authorsEl = document.getElementById("authors");
   const dateEl = document.getElementById("date");
@@ -84,7 +83,7 @@
       const div = document.createElement("div"); div.textContent = "Detected bylines:";
       vis.bylines.forEach(b => {
         const btn = document.createElement("button"); btn.type="button"; btn.textContent=b; btn.style.margin="4px";
-        btn.addEventListener("click", () => { authorsEl.value = b; statusEl.textContent = "Byline imported"; setTimeout(()=>statusEl.textContent="",900); });
+        btn.addEventListener("click", () => { authorsEl.value = b; statusEl.textContent = "Byline imported"; setTimeout(()=>statusEl.textContent="",800); });
         div.appendChild(btn);
       });
       quickFillContainer.appendChild(div);
@@ -93,7 +92,7 @@
       const div = document.createElement("div"); div.textContent = "Detected dates:";
       vis.dates.forEach(d => {
         const btn = document.createElement("button"); btn.type="button"; btn.textContent=d; btn.style.margin="4px";
-        btn.addEventListener("click", () => { dateEl.value = d; statusEl.textContent = "Date imported"; setTimeout(()=>statusEl.textContent="",900); });
+        btn.addEventListener("click", () => { dateEl.value = d; statusEl.textContent = "Date imported"; setTimeout(()=>statusEl.textContent="",800); });
         div.appendChild(btn);
       });
       quickFillContainer.appendChild(div);
@@ -114,10 +113,8 @@
   function formatAuthorsAPA(list) {
     const names = (list || []).slice(0,20);
     if (!names.length) return "";
-    if (names.length === 1) {
-      const single = names[0];
-      if (/U\.S\. Environmental Protection Agency|National Snow and Ice Data Center/i.test(single)) return single;
-    }
+    // corporate single author passthrough
+    if (names.length === 1 && /U\.S\. Environmental Protection Agency|National Snow and Ice Data Center/i.test(names[0])) return names[0];
     const formatted = names.map(n => {
       const s = window.CiteUtils.splitName(n);
       const initials = s.initials ? s.initials : (s.firstMiddle ? s.firstMiddle.split(/\s+/).map(x=>x[0]?.toUpperCase()+".").join(" ") : "");
@@ -246,20 +243,4 @@
   copyBtn.addEventListener("click", async () => {
     try { await navigator.clipboard.writeText(output.value); copyBtn.textContent="Copied!"; setTimeout(()=>copyBtn.textContent="Copy citation",800); } catch { copyBtn.textContent="Copy failed"; setTimeout(()=>copyBtn.textContent="Copy citation",800); }
   });
-
-  // small helper used elsewhere
-  function hydrateFields(d) {
-    titleEl.value = d.title || "";
-    authorsEl.value = (d.authors || []).join(", ");
-    dateEl.value = d.chosenDateManual || (d.published || d.modified || "");
-    publisherEl.value = d.publisher || d.siteName || "";
-    urlEl.value = d.url || "";
-    doiEl.value = d.doi || "";
-    detPublishedEl.textContent = d.published || "none";
-    detModifiedEl.textContent = d.modified || "none";
-    if (d.chosenDate === "published" && d.published) dateChoicePublished.checked = true;
-    else if (d.chosenDate === "modified" && d.modified) dateChoiceModified.checked = true;
-    else if (d.chosenDate === "nd") dateChoiceND.checked = true;
-    else { if (d.published) dateChoicePublished.checked = true; else if (d.modified) dateChoiceModified.checked = true; else dateChoiceND.checked = true; }
-  }
 })();
