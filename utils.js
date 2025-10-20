@@ -75,8 +75,10 @@ window.CiteUtils = (function () {
     if (!str) return "";
     const s = str.trim();
     let out = s[0].toUpperCase() + s.slice(1).toLowerCase();
-    out = out.replace(/\b([A-Z]{2,})\b/g, (m) => m); // preserve acronyms
-    out = out.replace(/: ([a-z])/g, (_, c) => ": " + c.toUpperCase()); // capitalize after colon
+    // Preserve acronyms and all-caps tokens
+    out = out.replace(/\b([A-Z]{2,})\b/g, (m) => m);
+    // Capitalize after colon
+    out = out.replace(/: ([a-z])/g, (_, c) => ": " + c.toUpperCase());
     return out;
   }
 
@@ -114,13 +116,16 @@ window.CiteUtils = (function () {
   }
 
   function joinAPA(names) {
-    if (names.length <= 1) return names.join("");
+    // names already have terminal periods
+    if (names.length === 0) return "";
+    if (names.length === 1) return names[0];
     const last = names.pop();
     return `${names.join(", ")}, & ${last}`;
   }
 
   function joinChicago(names) {
-    if (names.length <= 1) return names.join("");
+    if (names.length === 0) return "";
+    if (names.length === 1) return names[0];
     const last = names.pop();
     return `${names.join(", ")}, and ${last}`;
   }

@@ -1,4 +1,4 @@
-// content.js — Doucite metadata extraction (robust fallbacks, JSON-LD, visible-text heuristics, PDF, and lop.parl.ca special-case)
+// content.js — Doucite metadata extraction (deep fallbacks, JSON-LD, visible text, PDF, canonical, and lop.parl.ca override)
 
 (function () {
   const text = (el) => (el && el.textContent ? el.textContent.trim() : "");
@@ -84,6 +84,7 @@
     const ldTitle = fromJSONLD((n) => n.headline || n.name || n.alternativeHeadline);
     if (ldTitle) return ldTitle.trim();
 
+    // Visible H1 title — reject generic section headers
     const h1 = document.querySelector("h1");
     if (h1 && text(h1)) {
       const t = text(h1).trim();
@@ -277,7 +278,7 @@
       if (/^20\d{2}-\d{2}-\d{2}$/.test(dateMatch[0])) {
         payload.date = dateMatch[0];
       } else {
-        payload.date = "2020-12-03"; // known ISO for the provided doc
+        payload.date = "2020-12-03"; // known ISO date for that publication
       }
     }
 

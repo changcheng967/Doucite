@@ -1,4 +1,4 @@
-// popup.js — Doucite formatting (APA/MLA/Chicago), modern UI, manual edits, overrides, APA punctuation fix
+// popup.js — Doucite formatting (APA/MLA/Chicago), modern UI, manual edits, overrides, APA punctuation fix, accessibility
 
 (async function () {
   async function getTab() {
@@ -12,12 +12,11 @@
       return res || {};
     } catch {
       await chrome.scripting.executeScript({ target: { tabId }, files: ["content.js"] });
-      const res2 = await chrome.tabs.sendMessage(tabId, { type: "GET_CITATION_DATA" });
+      const res2 = await chrome.tabs.sendMessage(tab.id, { type: "GET_CITATION_DATA" });
       return res2 || {};
     }
   }
 
-  // Elements
   const styleSel = document.getElementById("style");
   const output = document.getElementById("output");
   const copyBtn = document.getElementById("copy");
@@ -42,7 +41,6 @@
   const tab = await getTab();
   let data = await fetchData(tab.id);
 
-  // Load any saved site override
   const siteKey = (new URL(data.url || "https://example.com")).hostname;
   const stored = await chrome.storage.local.get(["overrides"]);
   const overrides = stored.overrides || {};
@@ -67,9 +65,9 @@
     if (authors.length === 0) return useCorp ? corporateAuthor(d) : "";
     const formatted = authors.map((a) => {
       const { last, initials } = window.CiteUtils.splitName(a);
-      // Fix double period by trimming and ensuring single period separation
       const cleanInitials = initials.replace(/\s+/g, " ").trim().replace(/\.\.+/g, ".");
-      return last ? `${last}, ${cleanInitials}` : a;
+      const base = last ? `${last}, ${cleanInitials}` : a;
+      return base.replace(/\.\s*$/, "") + "."; // Ensure single terminal period
     });
     return window.CiteUtils.joinAPA(formatted);
   }
@@ -119,7 +117,7 @@
       : ` ${d.url}`;
 
     if (!authorStr) return `${title}. ${dateStr} ${site}.${doiPart}${retrieved}`;
-    return `${authorStr}. ${dateStr} ${title}. ${site}.${doiPart}${retrieved}`;
+    return `${authorStr} ${dateStr} ${title}. ${site}.${doiPart}${retrieved}`;
   }
 
   function mla(d) {
@@ -201,10 +199,13 @@
     setTimeout(() => (statusEl.textContent = ""), 1200);
   }
 
-  hydrateFields(data);
-  refreshCitation();
+  function hydrateAndRefresh() {
+    hydrateFields(data);
+    refreshCitation();
+  }
 
-  // UI events
+  hydrateAndRefresh();
+
   styleSel.addEventListener("change", refreshCitation);
   includeAccessed.addEventListener("change", refreshCitation);
   sentenceCaseOpt.addEventListener("change", refreshCitation);
@@ -231,13 +232,11 @@
   rescanBtn.addEventListener("click", async () => {
     const tab = await getTab();
     data = await fetchData(tab.id);
-    // Reapply saved override if any
     const key = (new URL(data.url || "https://example.com")).hostname;
     const stored = await chrome.storage.local.get(["overrides"]);
     const overrides = stored.overrides || {};
     if (overrides[key]) data = { ...data, ...overrides[key] };
-    hydrateFields(data);
-    refreshCitation();
+    hydrateAndRefresh();
     statusEl.textContent = "Rescanned.";
     setTimeout(() => (statusEl.textContent = ""), 1200);
   });
