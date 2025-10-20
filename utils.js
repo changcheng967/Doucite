@@ -1,4 +1,4 @@
-// utils.js — Doucite v3.1.0 (name parsing, dates, casing, joins, slugs, month index)
+// utils.js — Doucite v3.1.1 (name parsing, dates, smarter sentence case, joins, slugs, month index)
 window.CiteUtils = (function () {
   function splitName(full) {
     const f = (full || "").trim();
@@ -56,13 +56,33 @@ window.CiteUtils = (function () {
     return { year: "", month: "", day: "" };
   }
 
-  function sentenceCase(str) {
+  // Smarter sentence case:
+  // - Uppercases first character
+  // - Lowercases others except:
+  //   * Known proper nouns in PRESERVE list
+  //   * Words that have mid-word capitals (e.g., eBay, iPhone)
+  const PRESERVE = new Set([
+    "Arctic","Alaska","EPA","U.S.","US","United","States","Environmental","Protection","Agency"
+  ]);
+
+  function sentenceCaseSmart(str) {
     if (!str) return "";
     const s = str.trim();
-    let out = s[0].toUpperCase() + s.slice(1).toLowerCase();
-    out = out.replace(/\b([A-Z]{2,})\b/g, (m) => m); // keep acronyms
-    out = out.replace(/: ([a-z])/g, (_, c) => ": " + c.toUpperCase());
-    return out;
+    // Split words preserving punctuation
+    const words = s.split(/\s+/);
+    const out = words.map((w, i) => {
+      // preserve mid-word capitals
+      const hasMidCaps = /[A-Z].*[A-Z]/.test(w.slice(1));
+      if (hasMidCaps || PRESERVE.has(w.replace(/[^\w.]/g, ""))) {
+        return w;
+      }
+      if (i === 0) {
+        return w.charAt(0).toUpperCase() + w.slice(1).toLowerCase();
+      }
+      return w.toLowerCase();
+    }).join(" ");
+    // Capitalize after colon
+    return out.replace(/: ([a-z])/g, (_, c) => ": " + c.toUpperCase());
   }
 
   function today() {
@@ -106,7 +126,7 @@ window.CiteUtils = (function () {
   return {
     splitName,
     normalizeDate,
-    sentenceCase,
+    sentenceCaseSmart,
     today,
     todayMLA,
     todayChicago,

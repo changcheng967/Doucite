@@ -1,7 +1,7 @@
-// popup.js — Doucite v3.1.0
+// popup.js — Doucite v3.1.1
 // Editable metadata with overrides (auto/page/site), lock/unlock citation,
 // styles (APA/MLA/Chicago/IEEE/Harvard/Vancouver), exports (BibTeX/RIS/CSL), batch mode, i18n,
-// conservative DOI for gov domains, APA punctuation fix, robust error handling.
+// conservative DOI for gov domains, APA author period fix, robust error handling.
 
 (async function () {
   async function getTab() {
@@ -71,14 +71,13 @@
   const pageKey = data.url || "https://example.com";
   const siteKey = (new URL(pageKey)).hostname;
   const stored = await chrome.storage.local.get(["overrides", "pageOverrides", "batch", "ui"]);
-  const overrides = stored.overrides || {};       // site-level
+  const overrides = stored.overrides || {};         // site-level
   const pageOverrides = stored.pageOverrides || {}; // page-level
   let batch = stored.batch || [];
   let uiPrefs = stored.ui || { lang: "en", dark: false };
 
-  // Apply site override on load if present
+  // Apply overrides: auto → site → page
   if (overrides[siteKey]) data = { ...data, ...overrides[siteKey] };
-  // Apply page override if present (takes precedence)
   if (pageOverrides[pageKey]) data = { ...data, ...pageOverrides[pageKey] };
 
   // i18n
@@ -216,22 +215,26 @@
 
   function titleByStyle(d, style) {
     let t = d.title || "";
-    if (style === "apa" && sentenceCaseOpt.checked) t = window.CiteUtils.sentenceCase(t);
+    if (style === "apa" && sentenceCaseOpt.checked) t = window.CiteUtils.sentenceCaseSmart(t);
     if (pdfSuffix.checked && d.isPDF) t = `${t} [PDF]`;
     return t;
   }
 
   function apa(d) {
     const date = window.CiteUtils.normalizeDate(d.date);
-    const authorStr = apaAuthors(d.authors || [], d, useCorporateAuthor.checked);
+    let authorStr = apaAuthors(d.authors || [], d, useCorporateAuthor.checked);
+    const hasAuthor = !!authorStr;
+    // Ensure corporate author gets a period if used
+    if (hasAuthor && !/\.\s*$/.test(authorStr)) authorStr = authorStr + ".";
     const dateStr = date.year ? `(${date.year}${date.month ? `, ${date.month}` : ""}${date.day ? ` ${date.day}` : ""}).` : "(n.d.).";
     const title = titleByStyle(d, "apa");
     const site = d.publisher || d.siteName;
     const doiPart = (shouldUseDOI(d) && d.doi) ? ` https://doi.org/${d.doi}` : "";
     const retrieved = includeAccessed.checked ? ` Retrieved ${window.CiteUtils.today()}, from ${d.url}` : ` ${d.url}`;
-    if (!authorStr) return `${title}. ${dateStr} ${site}.${doiPart}${retrieved}`;
+    if (!hasAuthor) return `${title}. ${dateStr} ${site}.${doiPart}${retrieved}`;
     return `${authorStr} ${dateStr} ${title}. ${site}.${doiPart}${retrieved}`;
   }
+
   function mla(d) {
     const authorStr = mlaAuthors(d.authors || []);
     const site = d.publisher || d.siteName;
@@ -243,6 +246,7 @@
     if (!authorStr) return `${titleQuoted} ${site}, ${dateStr}, ${d.url}.${doiPart}${accessed}`;
     return `${authorStr}. ${titleQuoted} ${site}, ${dateStr}, ${d.url}.${doiPart}${accessed}`;
   }
+
   function chicago(d) {
     const authorStr = chicagoAuthors(d.authors || [], d, useCorporateAuthor.checked);
     const site = d.publisher || d.siteName;
@@ -254,6 +258,7 @@
     if (!authorStr) return `${titleQuoted} ${site}, ${dateStr}. ${d.url}.${doiPart}${accessed}`;
     return `${authorStr}. ${titleQuoted} ${site}, ${dateStr}. ${d.url}.${doiPart}${accessed}`;
   }
+
   function ieee(d) {
     const idx = 1;
     const authorStr = ieeeAuthors(d.authors || []);
@@ -262,6 +267,7 @@
     const site = d.publisher || d.siteName;
     return `[${idx}] ${authorStr ? authorStr + ", " : ""}"${title}", ${site}, ${year}. Available: ${d.url}`;
   }
+
   function harvard(d) {
     const authorStr = harvardAuthors(d.authors || []);
     const date = window.CiteUtils.normalizeDate(d.date);
@@ -271,6 +277,7 @@
     const accessed = includeAccessed.checked ? ` (Accessed ${window.CiteUtils.todayMLA()}).` : ".";
     return `${authorStr ? authorStr + " " : ""}(${year}) ${title}. ${site}. Available at: ${d.url}${accessed}`;
   }
+
   function vancouver(d) {
     const authorStr = vancouverAuthors(d.authors || []);
     const year = window.CiteUtils.normalizeDate(d.date).year || "n.d.";
@@ -423,6 +430,7 @@
     bib += "}";
     return bib;
   }
+
   function ris(d) {
     const date = window.CiteUtils.normalizeDate(d.date);
     const year = date.year || "";
@@ -440,6 +448,7 @@
     ].filter(Boolean);
     return lines.join("\n");
   }
+
   function csl(d) {
     const date = window.CiteUtils.normalizeDate(d.date);
     const obj = {

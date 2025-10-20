@@ -1,7 +1,6 @@
-// content.js — Doucite v3.1.0
-// Layered extraction, title cleanup (site suffix removal), canonical URL,
-// corporate author normalization, DOI detection, PDF detection,
-// site overrides (lop.parl.ca, arXiv, SSRN, PubMed). Safe payload exposure.
+// content.js — Doucite v3.1.1
+// Layered extraction, title cleanup, canonical URL, corporate author normalization,
+// DOI detection, PDF detection, site overrides (lop.parl.ca, arXiv, SSRN, PubMed). Safe payload exposure.
 
 (function () {
   const text = (el) => (el && el.textContent ? el.textContent.trim() : "");
