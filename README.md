@@ -24,7 +24,7 @@ Doucite is a browser extension for one‑click, highly accurate citations. It ex
 5. Pin Doucite and click on any page to generate a citation.
 
 ## Usage
-- Choose citation style (APA 7, MLA 9, Chicago) in the toolbar.
+- Choose citation style APA7(only APA7 is avaliable right now) in the toolbar.
 - Click ↻ to rescan if page changes.
 - Toggle ☾ for dark mode.
 - Edit Title, Authors, Date, Publisher, URL, DOI; click "Apply changes".
