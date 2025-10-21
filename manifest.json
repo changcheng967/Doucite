@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "Doucite",
-  "version": "3.7.3",
-  "description": "Doucite — accurate citation extraction with robust byline parsing and APA 7 output.",
+  "version": "4.2.1",
+  "description": "Doucite — visible-first citation extractor, title-as-author fallback for APA, enhanced UI.",
   "permissions": ["activeTab", "scripting", "clipboardWrite", "storage", "tabs"],
   "host_permissions": ["<all_urls>"],
   "action": { "default_title": "Doucite", "default_popup": "popup.html" },
